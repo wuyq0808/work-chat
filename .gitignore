@@ -1,6 +1,28 @@
-.DS_Store
-/node_modules/
+# Dependencies
+node_modules/
+
+# Production builds
+build/
+dist/
 
 # React Router
-/.react-router/
-/build/
+.react-router/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+
+# IDE/Editor files
+.vscode/
+.idea/
+
+# Claude configuration
+.claude/
