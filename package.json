@@ -9,21 +9,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.15.1",
     "@slack/web-api": "^7.9.3",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.3",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
-    "express": "^5.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tsx": "^4.20.3"
+    "express": "^5.1.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
     "@types/node": "^20",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
 }
