@@ -147,14 +147,6 @@ app.post('/api/openai/generate', async (req, res) => {
 // MCP HTTP endpoint - handle all MCP requests
 app.post('/api/mcp', async (req, res) => {
   try {
-    // Log OpenAI requests for debugging
-    if (req.headers['user-agent']?.includes('openai-mcp')) {
-      console.log('OpenAI MCP Request:', JSON.stringify({
-        headers: req.headers,
-        body: req.body
-      }, null, 2));
-    }
-
     // Bearer token authentication check
     const authHeader = req.headers.authorization;
     const expectedToken = process.env.API_KEY;
