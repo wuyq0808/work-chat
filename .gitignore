@@ -26,3 +26,6 @@ npm-debug.log*
 
 # Claude configuration
 .claude/
+
+# Cache files
+.cache/

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "slack-assistant": {
+      "url": "http://localhost:5174/api/mcp/sse",
+      "transport": "sse"
+    }
+  }
+}

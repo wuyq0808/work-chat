@@ -1,0 +1,232 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { SlackMCPClient } from './lib/slack-client.js';
+// Simple HTTP MCP server - no SDK transport needed
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const port = process.env.PORT || 5173;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Initialize Slack client
+const slackClient = new SlackMCPClient({
+  botToken: process.env.SLACK_BOT_TOKEN,
+  userToken: process.env.SLACK_USER_TOKEN,
+  addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
+  allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
+});
+
+// MCP server info
+const SERVER_INFO = {
+  name: "slack-mcp-server",
+  version: "1.0.0"
+};
+
+const CAPABILITIES = {
+  tools: {
+    listChanged: false
+  }
+};
+
+const TOOLS = [
+  {
+    name: "conversations_history",
+    description: "Get conversation history from a Slack channel",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { 
+          type: "string", 
+          description: "Channel ID or name (e.g., #general)" 
+        },
+        limit: { 
+          type: "number", 
+          description: "Number of messages (default: 10)" 
+        }
+      },
+      required: ["channel_id"]
+    }
+  },
+  {
+    name: "channels_list",
+    description: "List all accessible Slack channels",
+    inputSchema: {
+      type: "object",
+      properties: {}
+    }
+  }
+];
+
+// Homepage route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// No OAuth endpoints - using simple basic auth instead
+
+// MCP HTTP endpoint - handle all MCP requests
+app.post('/api/mcp', async (req, res) => {
+  try {
+    // Bearer token authentication check
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.API_KEY;
+    
+    if (!expectedToken) {
+      console.warn('Warning: API_KEY environment variable not set');
+    }
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: {
+          code: -32001,
+          message: 'Unauthorized - Bearer token required'
+        }
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    if (expectedToken && token !== expectedToken) {
+      return res.status(401).json({
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: {
+          code: -32001,
+          message: 'Unauthorized - Invalid token'
+        }
+      });
+    }
+
+    const { jsonrpc, id, method, params } = req.body;
+
+    if (jsonrpc !== '2.0') {
+      return res.status(400).json({
+        jsonrpc: '2.0',
+        id,
+        error: {
+          code: -32600,
+          message: 'Invalid JSON-RPC version'
+        }
+      });
+    }
+
+    let result;
+
+    switch (method) {
+      case 'initialize':
+        result = {
+          protocolVersion: '2024-11-05',
+          capabilities: CAPABILITIES,
+          serverInfo: SERVER_INFO
+        };
+        break;
+
+      case 'tools/list':
+        result = {
+          tools: TOOLS
+        };
+        break;
+
+      case 'tools/call':
+        const { name, arguments: args } = params;
+        
+        switch (name) {
+          case 'conversations_history':
+            await slackClient.refreshUsers();
+            await slackClient.refreshChannels();
+            const historyResult = await slackClient.getConversationHistory({
+              channel: args?.channel_id as string,
+              limit: (args?.limit as number) || 10
+            });
+            
+            if (historyResult.success && historyResult.data) {
+              let content = 'userName,text,time\n';
+              historyResult.data.forEach((msg: any) => {
+                content += `${msg.userName},${msg.text.replace(/\n/g, ' ')},${msg.time}\n`;
+              });
+              
+              result = {
+                content: [
+                  {
+                    type: "text",
+                    text: content
+                  }
+                ]
+              };
+            } else {
+              throw new Error(historyResult.error || 'Failed to fetch conversation history');
+            }
+            break;
+            
+          case 'channels_list':
+            await slackClient.refreshChannels();
+            const channelsResult = await slackClient.getChannels();
+            
+            if (channelsResult.success && channelsResult.data) {
+              let content = 'id,name,is_private,is_member\n';
+              channelsResult.data.forEach((channel: any) => {
+                content += `${channel.id},${channel.name || 'unnamed'},${channel.is_private || false},${channel.is_member || false}\n`;
+              });
+              
+              result = {
+                content: [
+                  {
+                    type: "text", 
+                    text: content
+                  }
+                ]
+              };
+            } else {
+              throw new Error(channelsResult.error || 'Failed to fetch channels');
+            }
+            break;
+            
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
+        break;
+
+      default:
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`
+          }
+        });
+    }
+
+    res.json({
+      jsonrpc: '2.0',
+      id,
+      result
+    });
+
+  } catch (error) {
+    console.error('MCP request error:', error);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: error instanceof Error ? error.message : 'Internal error'
+      }
+    });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+  console.log(`MCP HTTP endpoint: http://localhost:${port}/api/mcp`);
+});
