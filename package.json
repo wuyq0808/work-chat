@@ -12,7 +12,8 @@
     "@slack/web-api": "^7.9.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "openai": "^5.9.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

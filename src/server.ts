@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import OpenAI from 'openai';
 import { SlackMCPClient } from './lib/slack-client.js';
 // Simple HTTP MCP server - no SDK transport needed
 
@@ -23,6 +24,11 @@ const slackClient = new SlackMCPClient({
   userToken: process.env.SLACK_USER_TOKEN,
   addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
   allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
+});
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 // MCP server info
@@ -71,11 +77,84 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// OpenAI API endpoint
+app.post('/api/openai/generate', async (req, res) => {
+  try {
+    // Bearer token authentication check
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.API_KEY;
+    
+    if (!expectedToken) {
+      console.warn('Warning: API_KEY environment variable not set');
+    }
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - Bearer token required'
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    if (expectedToken && token !== expectedToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized - Invalid token'
+      });
+    }
+
+    const { input } = req.body;
+    
+    if (!input) {
+      return res.status(400).json({
+        error: 'Input text is required'
+      });
+    }
+
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: input,
+      tools: [
+        {
+          type: "mcp",
+          server_label: "slack-mcp",
+          server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
+          headers: {
+            Authorization: `Bearer ${process.env.API_KEY}`
+          }
+        }
+      ]
+    });
+
+    res.json({
+      success: true,
+      output: response.output_text || 'No response generated',
+      model: "gpt-4.1-mini",
+      usage: response.usage
+    });
+
+  } catch (error) {
+    console.error('OpenAI API error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate response'
+    });
+  }
+});
+
 // No OAuth endpoints - using simple basic auth instead
 
 // MCP HTTP endpoint - handle all MCP requests
 app.post('/api/mcp', async (req, res) => {
   try {
+    // Log OpenAI requests for debugging
+    if (req.headers['user-agent']?.includes('openai-mcp')) {
+      console.log('OpenAI MCP Request:', JSON.stringify({
+        headers: req.headers,
+        body: req.body
+      }, null, 2));
+    }
+
     // Bearer token authentication check
     const authHeader = req.headers.authorization;
     const expectedToken = process.env.API_KEY;
