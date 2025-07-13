@@ -275,6 +275,11 @@ app.post('/api/mcp', async (req, res) => {
         }
         break;
 
+      case 'notifications/initialized':
+        // OpenAI sends this notification after initialization
+        // Just acknowledge it - no response needed for notifications
+        return res.status(200).send();
+
       default:
         return res.status(400).json({
           jsonrpc: '2.0',
