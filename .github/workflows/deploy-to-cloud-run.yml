@@ -54,7 +54,7 @@ jobs:
             --cpu 1 \
             --timeout 300 \
             --service-account=slack-assistant@$PROJECT_ID.iam.gserviceaccount.com \
-            --set-env-vars="NODE_ENV=production,PORT=3000" \
+            --set-env-vars="NODE_ENV=production" \
             --set-secrets="SLACK_USER_TOKEN=SLACK_USER_TOKEN:latest,API_KEY=API_KEY:latest,SLACK_ADD_MESSAGE_ENABLED=SLACK_ADD_MESSAGE_ENABLED:latest,SLACK_ALLOWED_CHANNELS=SLACK_ALLOWED_CHANNELS:latest"
 
       - name: Get service URL
