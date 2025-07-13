@@ -112,7 +112,7 @@ app.post('/api/openai/generate', async (req, res) => {
     }
 
     const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       input: input,
       tools: [
         {
@@ -121,7 +121,8 @@ app.post('/api/openai/generate', async (req, res) => {
           server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
           headers: {
             Authorization: `Bearer ${process.env.API_KEY}`
-          }
+          },
+          require_approval: "never"
         }
       ]
     });
@@ -129,7 +130,7 @@ app.post('/api/openai/generate', async (req, res) => {
     res.json({
       success: true,
       output: response.output_text || 'No response generated',
-      model: "gpt-4.1-mini",
+      model: "gpt-4o-mini",
       usage: response.usage
     });
 
