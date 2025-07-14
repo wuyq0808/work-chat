@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
 import { SlackMCPClient } from './lib/slack-client.js';
+import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);
@@ -142,7 +143,7 @@ app.post('/api/openai/generate', async (req, res) => {
         {
           type: "mcp",
           server_label: "slack-mcp",
-          server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
+          server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp/streamable",
           headers: {
             Authorization: `Bearer ${process.env.API_KEY}`,
             'X-Slack-User-Token': slack_user_token
@@ -349,7 +350,74 @@ app.post('/api/mcp', async (req, res) => {
   }
 });
 
+// MCP Streamable HTTP endpoint - handles both GET and POST
+app.all('/api/mcp/streamable', async (req, res) => {
+  try {
+    // Bearer token authentication check
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.API_KEY;
+    
+    if (!expectedToken) {
+      console.warn('Warning: API_KEY environment variable not set');
+    }
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Unauthorized - Bearer token required'
+      });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    if (expectedToken && token !== expectedToken) {
+      return res.status(401).json({
+        error: 'Unauthorized - Invalid token'
+      });
+    }
+
+    // Get Slack user token from header
+    const slackUserToken = req.headers['x-slack-user-token'] as string;
+    if (!slackUserToken) {
+      return res.status(400).json({
+        error: 'Slack user token required in X-Slack-User-Token header'
+      });
+    }
+
+    // Create a new Streamable MCP server instance for this connection
+    const streamableServer = new SlackStreamableMCPServer();
+    
+    // Initialize Slack client
+    streamableServer.initializeSlackClient({
+      botToken: process.env.SLACK_BOT_TOKEN,
+      userToken: slackUserToken,
+      addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
+      allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
+    });
+
+    // Create MCP server and transport
+    const server = streamableServer.createServer();
+    const transport = streamableServer.createTransport();
+
+    // Clean up on request close
+    res.on('close', () => {
+      console.log('Streamable HTTP request closed');
+      transport.close();
+      server.close();
+    });
+
+    // Connect server to transport and handle the request
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+
+  } catch (error) {
+    console.error('MCP Streamable HTTP error:', error);
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Internal error'
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   console.log(`MCP HTTP endpoint: http://localhost:${port}/api/mcp`);
+  console.log(`MCP Streamable HTTP endpoint: http://localhost:${port}/api/mcp/streamable`);
 });
