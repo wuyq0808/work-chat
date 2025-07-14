@@ -7,10 +7,8 @@ import fs from 'fs/promises';
 import path from 'path';
 
 export interface SlackConfig {
-  botToken?: string;
   userToken?: string;
   addMessageToolEnabled?: boolean;
-  allowedChannels?: string[];
   usersCache?: string;
   channelsCache?: string;
 }
@@ -36,10 +34,10 @@ export class SlackMCPClient {
     this.config = config;
     this.cacheDir = path.join(process.cwd(), '.cache');
     
-    // Use user token if available, otherwise bot token
-    const token = config.userToken || config.botToken;
+    // Use user token
+    const token = config.userToken;
     if (!token) {
-      throw new Error('Either userToken or botToken must be provided');
+      throw new Error('userToken must be provided');
     }
     
     this.client = new WebClient(token);
@@ -429,72 +427,6 @@ export class SlackMCPClient {
     }
   }
 
-  async addMessage(params: {
-    channel: string;
-    text: string;
-    thread_ts?: string;
-  }): Promise<ApiResponse<any>> {
-    try {
-      if (!this.config.addMessageToolEnabled) {
-        return {
-          success: false,
-          error: 'Message posting is disabled'
-        };
-      }
-
-      // Resolve channel name to ID if needed
-      let channelId = params.channel;
-      if (params.channel.startsWith('#')) {
-        const channelName = params.channel.substring(1);
-        const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
-        if (channel?.id) {
-          channelId = channel.id;
-        } else {
-          return {
-            success: false,
-            error: `Channel ${params.channel} not found`
-          };
-        }
-      }
-
-      // Check if channel is allowed
-      if (this.config.allowedChannels && this.config.allowedChannels.length > 0) {
-        const channelInfo = this.channelsCache.get(channelId);
-        const channelName = channelInfo?.name || channelId;
-        
-        if (!this.config.allowedChannels.includes(channelId) && 
-            !this.config.allowedChannels.includes(`#${channelName}`)) {
-          return {
-            success: false,
-            error: `Posting to channel ${params.channel} is not allowed`
-          };
-        }
-      }
-
-      const result = await this.client.chat.postMessage({
-        channel: channelId,
-        text: params.text,
-        thread_ts: params.thread_ts
-      });
-
-      if (!result.ok) {
-        return {
-          success: false,
-          error: `Failed to post message: ${result.error}`
-        };
-      }
-
-      return {
-        success: true,
-        data: result
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
 
   private processText(text: string): string {
     // Basic text processing - convert user/channel mentions

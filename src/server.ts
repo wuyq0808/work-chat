@@ -166,10 +166,8 @@ app.all('/api/mcp', async (req, res) => {
     
     // Initialize Slack client
     streamableServer.initializeSlackClient({
-      botToken: process.env.SLACK_BOT_TOKEN,
       userToken: slackUserToken,
-      addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
-      allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
+      addMessageToolEnabled: false
     });
 
     // Create MCP server and transport
