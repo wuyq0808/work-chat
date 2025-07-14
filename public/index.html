@@ -1,36 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slack MCP Server</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 2rem;
-            line-height: 1.6;
-            color: #333;
-            text-align: center;
-        }
-        .welcome {
-            margin-top: 4rem;
-        }
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-        }
-        p {
-            font-size: 1.2rem;
-            color: #666;
-        }
-    </style>
+    <title>Slack AI Assistant</title>
 </head>
 <body>
-    <div class="welcome">
-        <h1>🔗 Welcome to Slack MCP Server</h1>
-        <p>Your Slack integration is ready and running.</p>
+    <h1>Slack AI Assistant</h1>
+    <p>Ask questions about your Slack workspace</p>
+    
+    <form id="chatForm">
+        <p>
+            <label>Slack Token:</label><br>
+            <input type="password" id="slackToken" placeholder="xoxp-your-slack-user-token" size="50" required>
+        </p>
+        
+        <p>
+            <label>Message:</label><br>
+            <textarea id="message" rows="4" cols="50" placeholder="List my Slack channels" required></textarea>
+        </p>
+        
+        <p>
+            <button type="submit" id="submitBtn">Send</button>
+        </p>
+    </form>
+    
+    <div id="response" style="display: none;">
+        <hr>
+        <h3>Response:</h3>
+        <pre id="responseContent"></pre>
     </div>
+
+    <script>
+        const API_KEY = 'OL1Gf5k7uxSXwpYX1FaQ+QEVdUvM1o75ZPcqg/czzTo=';
+        
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const slackToken = document.getElementById('slackToken').value;
+            const message = document.getElementById('message').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const responseDiv = document.getElementById('response');
+            const responseContent = document.getElementById('responseContent');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            responseDiv.style.display = 'block';
+            responseContent.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/openai/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'X-Slack-User-Token': slackToken
+                    },
+                    body: JSON.stringify({
+                        input: message
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    responseContent.textContent = data.output;
+                } else {
+                    responseContent.textContent = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                responseContent.textContent = `Error: ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send';
+            }
+        });
+    </script>
 </body>
 </html>

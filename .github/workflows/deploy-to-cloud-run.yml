@@ -54,7 +54,7 @@ jobs:
             --cpu 1 \
             --timeout 300 \
             --service-account=slack-assistant@$PROJECT_ID.iam.gserviceaccount.com \
-            --set-env-vars="NODE_ENV=production,SLACK_USER_TOKEN=${{ secrets.SLACK_USER_TOKEN }},API_KEY=${{ secrets.API_KEY }},SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }},SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}"
+            --set-env-vars="NODE_ENV=production,API_KEY=${{ secrets.API_KEY }},SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }},SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}"
 
       - name: Get service URL
         run: |

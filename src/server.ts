@@ -18,13 +18,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Initialize Slack client
-const slackClient = new SlackMCPClient({
-  botToken: process.env.SLACK_BOT_TOKEN,
-  userToken: process.env.SLACK_USER_TOKEN,
-  addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
-  allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
-});
+// Initialize Slack client (will be created per request with dynamic token)
+let slackClient: SlackMCPClient;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -111,6 +106,14 @@ app.post('/api/openai/generate', async (req, res) => {
       });
     }
 
+    // Get Slack user token from header
+    const slack_user_token = req.headers['x-slack-user-token'] as string;
+    if (!slack_user_token) {
+      return res.status(400).json({
+        error: 'Slack user token required in X-Slack-User-Token header'
+      });
+    }
+
     const response = await openai.responses.create({
       model: "gpt-4o-mini",
       input: input,
@@ -120,7 +123,8 @@ app.post('/api/openai/generate', async (req, res) => {
           server_label: "slack-mcp",
           server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
           headers: {
-            Authorization: `Bearer ${process.env.API_KEY}`
+            Authorization: `Bearer ${process.env.API_KEY}`,
+            'X-Slack-User-Token': slack_user_token
           },
           require_approval: "never"
         }
@@ -178,6 +182,27 @@ app.post('/api/mcp', async (req, res) => {
         }
       });
     }
+
+    // Get Slack user token from header
+    const slackUserToken = req.headers['x-slack-user-token'] as string;
+    if (!slackUserToken) {
+      return res.status(400).json({
+        jsonrpc: '2.0',
+        id: req.body?.id || null,
+        error: {
+          code: -32602,
+          message: 'Slack user token required in X-Slack-User-Token header'
+        }
+      });
+    }
+
+    // Create Slack client with dynamic token
+    slackClient = new SlackMCPClient({
+      botToken: process.env.SLACK_BOT_TOKEN,
+      userToken: slackUserToken,
+      addMessageToolEnabled: process.env.SLACK_ADD_MESSAGE_ENABLED === 'true',
+      allowedChannels: process.env.SLACK_ALLOWED_CHANNELS?.split(',').map(c => c.trim())
+    });
 
     const { jsonrpc, id, method, params } = req.body;
 
