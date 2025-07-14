@@ -320,20 +320,23 @@ export class SlackMCPClient {
       const messages: SlackMessage[] = [];
 
       for (const msg of result.messages) {
-        if (msg.subtype && msg.subtype !== '') {
+        // Cast to any to access all message properties
+        const message_any = msg as any;
+        
+        if (message_any.subtype && message_any.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
         }
 
-        const user = this.usersCache.get(msg.user || '');
+        const user = this.usersCache.get(message_any.user || '');
         const message: SlackMessage = {
-          userID: msg.user || '',
-          userName: user?.name || msg.user || 'Unknown',
-          realName: user?.realName || user?.name || msg.user || 'Unknown',
+          userID: message_any.user || '',
+          userName: user?.name || message_any.user || 'Unknown',
+          realName: user?.realName || user?.name || message_any.user || 'Unknown',
           channel: channelId,
-          threadTs: msg.thread_ts || '',
-          text: this.processText(msg.text || ''),
-          time: msg.ts || ''
+          threadTs: message_any.thread_ts || '',
+          text: this.processText(message_any.text || ''),
+          time: message_any.ts || ''
         };
 
         messages.push(message);
@@ -400,20 +403,23 @@ export class SlackMCPClient {
       const messages: SlackMessage[] = [];
 
       for (const msg of result.messages) {
-        if (msg.subtype && msg.subtype !== '') {
+        // Cast to any to access all message properties
+        const message_any = msg as any;
+        
+        if (message_any.subtype && message_any.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
         }
 
-        const user = this.usersCache.get(msg.user || '');
+        const user = this.usersCache.get(message_any.user || '');
         const message: SlackMessage = {
-          userID: msg.user || '',
-          userName: user?.name || msg.user || 'Unknown',
-          realName: user?.realName || user?.name || msg.user || 'Unknown',
+          userID: message_any.user || '',
+          userName: user?.name || message_any.user || 'Unknown',
+          realName: user?.realName || user?.name || message_any.user || 'Unknown',
           channel: channelId,
-          threadTs: msg.thread_ts || '',
-          text: this.processText(msg.text || ''),
-          time: msg.ts || ''
+          threadTs: message_any.thread_ts || '',
+          text: this.processText(message_any.text || ''),
+          time: message_any.ts || ''
         };
 
         messages.push(message);
@@ -462,17 +468,20 @@ export class SlackMCPClient {
       const messages: SlackMessage[] = [];
 
       for (const match of result.messages.matches) {
-        const user = this.usersCache.get(match.user || '');
-        const channel = this.channelsCache.get(match.channel?.id || '');
+        // Cast to any to access all match properties
+        const match_any = match as any;
+        
+        const user = this.usersCache.get(match_any.user || '');
+        const channel = this.channelsCache.get(match_any.channel?.id || '');
         
         const message: SlackMessage = {
-          userID: match.user || '',
-          userName: user?.name || match.username || 'Unknown',
-          realName: user?.realName || user?.name || match.username || 'Unknown',
-          channel: match.channel?.id || '',
-          threadTs: match.ts || '',
-          text: this.processText(match.text || ''),
-          time: match.ts || ''
+          userID: match_any.user || '',
+          userName: user?.name || match_any.username || 'Unknown',
+          realName: user?.realName || user?.name || match_any.username || 'Unknown',
+          channel: match_any.channel?.id || '',
+          threadTs: match_any.ts || '',
+          text: this.processText(match_any.text || ''),
+          time: match_any.ts || ''
         };
 
         messages.push(message);
