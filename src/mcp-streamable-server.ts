@@ -185,41 +185,6 @@ export class SlackStreamableMCPServer {
       }
     });
 
-    // Register add_message tool
-    server.registerTool('add_message', {
-      title: 'Post Slack Message',
-      description: 'Post a message to a Slack channel or thread',
-      inputSchema: {
-        channel_id: z.string().describe('Channel ID or name (e.g., #general)'),
-        text: z.string().describe('Message text to post'),
-        thread_ts: z.string().optional().describe('Thread timestamp for replying in thread')
-      }
-    }, async ({ channel_id, text, thread_ts }) => {
-      if (!this.slackClient) {
-        throw new Error('Slack client not initialized');
-      }
-
-      await this.slackClient.refreshChannels();
-      
-      const addResult = await this.slackClient.addMessage({
-        channel: channel_id,
-        text,
-        thread_ts
-      });
-      
-      if (addResult.success && addResult.data) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Message posted successfully to ${channel_id}. Message timestamp: ${addResult.data.ts}`
-            }
-          ]
-        };
-      } else {
-        throw new Error(addResult.error || 'Failed to post message');
-      }
-    });
 
     return server;
   }
