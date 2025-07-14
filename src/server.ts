@@ -399,7 +399,6 @@ app.all('/api/mcp/streamable', async (req, res) => {
 
     // Clean up on request close
     res.on('close', () => {
-      console.log('Streamable HTTP request closed');
       transport.close();
       server.close();
     });

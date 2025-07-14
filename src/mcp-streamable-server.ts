@@ -103,12 +103,12 @@ export class SlackStreamableMCPServer {
   // Create Streamable HTTP transport
   createTransport(): StreamableHTTPServerTransport {
     return new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      enableJsonResponse: false, // Enable SSE streaming
-      onsessioninitialized: (sessionId) => {
+      sessionIdGenerator: undefined, // Stateless mode for OpenAI compatibility
+      enableJsonResponse: true, // Enable JSON responses for OpenAI compatibility
+      onsessioninitialized: (sessionId: string) => {
         console.log(`MCP Streamable session initialized: ${sessionId}`);
       },
-      onsessionclosed: (sessionId) => {
+      onsessionclosed: (sessionId: string) => {
         console.log(`MCP Streamable session closed: ${sessionId}`);
       }
     });
