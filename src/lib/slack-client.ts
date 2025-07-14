@@ -1,4 +1,8 @@
 import { WebClient } from '@slack/web-api';
+import type { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
+import type { Channel } from '@slack/web-api/dist/types/response/ConversationsListResponse';
+import type { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
+import type { Match } from '@slack/web-api/dist/types/response/SearchMessagesResponse';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -11,36 +15,8 @@ export interface SlackConfig {
   channelsCache?: string;
 }
 
-export interface SlackChannel {
-  id: string;
-  name: string;
-  topic: string;
-  purpose: string;
-  memberCount: number;
-  isMpIM: boolean;
-  isIM: boolean;
-  isPrivate: boolean;
-  isMember: boolean;
-}
 
-export interface SlackMessage {
-  userID: string;
-  userName: string;
-  realName: string;
-  channel: string;
-  threadTs: string;
-  text: string;
-  time: string;
-  cursor?: string;
-}
 
-export interface SlackUser {
-  id: string;
-  name: string;
-  realName: string;
-  displayName: string;
-  email?: string;
-}
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -51,9 +27,9 @@ export interface ApiResponse<T> {
 export class SlackMCPClient {
   private client: WebClient;
   private config: SlackConfig;
-  private usersCache: Map<string, SlackUser> = new Map();
+  private usersCache: Map<string, Member> = new Map();
   private usersInvCache: Map<string, string> = new Map();
-  private channelsCache: Map<string, SlackChannel> = new Map();
+  private channelsCache: Map<string, Channel> = new Map();
   private readonly cacheDir: string;
 
   constructor(config: SlackConfig) {
@@ -145,7 +121,7 @@ export class SlackMCPClient {
     }
   }
 
-  async refreshUsers(): Promise<ApiResponse<SlackUser[]>> {
+  async refreshUsers(): Promise<ApiResponse<Member[]>> {
     try {
       // Try loading from cache first
       if (await this.loadUsersFromCache() && this.usersCache.size > 0) {
@@ -172,16 +148,8 @@ export class SlackMCPClient {
 
       for (const member of result.members) {
         if (member.id && member.name) {
-          const user: SlackUser = {
-            id: member.id,
-            name: member.name,
-            realName: member.real_name || member.name,
-            displayName: member.profile?.display_name || member.real_name || member.name,
-            email: member.profile?.email
-          };
-          
-          this.usersCache.set(user.id, user);
-          this.usersInvCache.set(user.name, user.id);
+          this.usersCache.set(member.id, member);
+          this.usersInvCache.set(member.name, member.id);
         }
       }
 
@@ -200,7 +168,7 @@ export class SlackMCPClient {
     }
   }
 
-  async refreshChannels(): Promise<ApiResponse<SlackChannel[]>> {
+  async refreshChannels(): Promise<ApiResponse<Channel[]>> {
     try {
       // Try loading from cache first
       if (await this.loadChannelsFromCache() && this.channelsCache.size > 0) {
@@ -213,7 +181,7 @@ export class SlackMCPClient {
       // Fetch from API if cache miss
       const types = ['public_channel', 'private_channel', 'mpim', 'im'];
       let cursor: string | undefined;
-      const allChannels: SlackChannel[] = [];
+      const allChannels: Channel[] = [];
 
       do {
         const result = await this.client.conversations.list({
@@ -232,20 +200,8 @@ export class SlackMCPClient {
 
         for (const channel of result.channels) {
           if (channel.id && channel.name) {
-            const slackChannel: SlackChannel = {
-              id: channel.id,
-              name: channel.name,
-              topic: channel.topic?.value || '',
-              purpose: channel.purpose?.value || '',
-              memberCount: channel.num_members || 0,
-              isMpIM: channel.is_mpim || false,
-              isIM: channel.is_im || false,
-              isPrivate: channel.is_private || false,
-              isMember: channel.is_member || false
-            };
-            
-            this.channelsCache.set(slackChannel.id, slackChannel);
-            allChannels.push(slackChannel);
+            this.channelsCache.set(channel.id, channel);
+            allChannels.push(channel);
           }
         }
 
@@ -267,7 +223,7 @@ export class SlackMCPClient {
     }
   }
 
-  async getChannels(): Promise<ApiResponse<SlackChannel[]>> {
+  async getChannels(): Promise<ApiResponse<Channel[]>> {
     if (this.channelsCache.size === 0) {
       return await this.refreshChannels();
     }
@@ -284,14 +240,14 @@ export class SlackMCPClient {
     oldest?: string;
     latest?: string;
     cursor?: string;
-  }): Promise<ApiResponse<SlackMessage[]>> {
+  }): Promise<ApiResponse<MessageElement[]>> {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
       if (params.channel.startsWith('#')) {
         const channelName = params.channel.substring(1);
         const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
-        if (channel) {
+        if (channel?.id) {
           channelId = channel.id;
         } else {
           return {
@@ -317,35 +273,27 @@ export class SlackMCPClient {
         };
       }
 
-      const messages: SlackMessage[] = [];
+      const messages: MessageElement[] = [];
 
       for (const msg of result.messages) {
-        // Cast to any to access all message properties
-        const message_any = msg as any;
+        const message = msg as MessageElement;
         
-        if (message_any.subtype && message_any.subtype !== '') {
+        if (message.subtype && message.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
         }
 
-        const user = this.usersCache.get(message_any.user || '');
-        const message: SlackMessage = {
-          userID: message_any.user || '',
-          userName: user?.name || message_any.user || 'Unknown',
-          realName: user?.realName || user?.name || message_any.user || 'Unknown',
-          channel: channelId,
-          threadTs: message_any.thread_ts || '',
-          text: this.processText(message_any.text || ''),
-          time: message_any.ts || ''
+        // Process the message text
+        const processedMessage: MessageElement = {
+          ...message,
+          text: this.processText(message.text || '')
         };
 
-        messages.push(message);
+        messages.push(processedMessage);
       }
 
       // Add cursor for pagination if there are more messages
-      if (messages.length > 0 && result.has_more && result.response_metadata?.next_cursor) {
-        messages[messages.length - 1].cursor = result.response_metadata.next_cursor;
-      }
+      // Note: cursor is handled by response_metadata, not individual messages
 
       return {
         success: true,
@@ -366,14 +314,14 @@ export class SlackMCPClient {
     oldest?: string;
     latest?: string;
     cursor?: string;
-  }): Promise<ApiResponse<SlackMessage[]>> {
+  }): Promise<ApiResponse<MessageElement[]>> {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
       if (params.channel.startsWith('#')) {
         const channelName = params.channel.substring(1);
         const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
-        if (channel) {
+        if (channel?.id) {
           channelId = channel.id;
         } else {
           return {
@@ -400,35 +348,27 @@ export class SlackMCPClient {
         };
       }
 
-      const messages: SlackMessage[] = [];
+      const messages: MessageElement[] = [];
 
       for (const msg of result.messages) {
-        // Cast to any to access all message properties
-        const message_any = msg as any;
+        const message = msg as MessageElement;
         
-        if (message_any.subtype && message_any.subtype !== '') {
+        if (message.subtype && message.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
         }
 
-        const user = this.usersCache.get(message_any.user || '');
-        const message: SlackMessage = {
-          userID: message_any.user || '',
-          userName: user?.name || message_any.user || 'Unknown',
-          realName: user?.realName || user?.name || message_any.user || 'Unknown',
-          channel: channelId,
-          threadTs: message_any.thread_ts || '',
-          text: this.processText(message_any.text || ''),
-          time: message_any.ts || ''
+        // Process the message text
+        const processedMessage: MessageElement = {
+          ...message,
+          text: this.processText(message.text || '')
         };
 
-        messages.push(message);
+        messages.push(processedMessage);
       }
 
       // Add cursor for pagination if there are more messages
-      if (messages.length > 0 && result.has_more && result.response_metadata?.next_cursor) {
-        messages[messages.length - 1].cursor = result.response_metadata.next_cursor;
-      }
+      // Note: cursor is handled by response_metadata, not individual messages
 
       return {
         success: true,
@@ -448,7 +388,7 @@ export class SlackMCPClient {
     page?: number;
     sort?: 'score' | 'timestamp';
     sort_dir?: 'asc' | 'desc';
-  }): Promise<ApiResponse<SlackMessage[]>> {
+  }): Promise<ApiResponse<Match[]>> {
     try {
       const result = await this.client.search.messages({
         query: params.query,
@@ -465,31 +405,21 @@ export class SlackMCPClient {
         };
       }
 
-      const messages: SlackMessage[] = [];
+      const matches: Match[] = [];
 
       for (const match of result.messages.matches) {
-        // Cast to any to access all match properties
-        const match_any = match as any;
-        
-        const user = this.usersCache.get(match_any.user || '');
-        const channel = this.channelsCache.get(match_any.channel?.id || '');
-        
-        const message: SlackMessage = {
-          userID: match_any.user || '',
-          userName: user?.name || match_any.username || 'Unknown',
-          realName: user?.realName || user?.name || match_any.username || 'Unknown',
-          channel: match_any.channel?.id || '',
-          threadTs: match_any.ts || '',
-          text: this.processText(match_any.text || ''),
-          time: match_any.ts || ''
+        // Process the match text
+        const processedMatch: Match = {
+          ...match,
+          text: this.processText(match.text || '')
         };
 
-        messages.push(message);
+        matches.push(processedMatch);
       }
 
       return {
         success: true,
-        data: messages
+        data: matches
       };
     } catch (error) {
       return {
@@ -517,7 +447,7 @@ export class SlackMCPClient {
       if (params.channel.startsWith('#')) {
         const channelName = params.channel.substring(1);
         const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
-        if (channel) {
+        if (channel?.id) {
           channelId = channel.id;
         } else {
           return {
@@ -583,11 +513,11 @@ export class SlackMCPClient {
       .replace(/&amp;/g, '&');
   }
 
-  getUserInfo(userId: string): SlackUser | undefined {
+  getUserInfo(userId: string): Member | undefined {
     return this.usersCache.get(userId);
   }
 
-  getChannelInfo(channelId: string): SlackChannel | undefined {
+  getChannelInfo(channelId: string): Channel | undefined {
     return this.channelsCache.get(channelId);
   }
 }
