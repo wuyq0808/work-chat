@@ -17,7 +17,6 @@ const port = process.env.PORT || 5173;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
 
 // Initialize Slack client (will be created per request with dynamic token)
 let slackClient: SlackMCPClient;

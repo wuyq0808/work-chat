@@ -356,6 +356,207 @@ export class SlackMCPClient {
     }
   }
 
+  async getConversationReplies(params: {
+    channel: string;
+    ts: string;
+    limit?: number;
+    oldest?: string;
+    latest?: string;
+    cursor?: string;
+  }): Promise<ApiResponse<SlackMessage[]>> {
+    try {
+      // Resolve channel name to ID if needed
+      let channelId = params.channel;
+      if (params.channel.startsWith('#')) {
+        const channelName = params.channel.substring(1);
+        const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
+        if (channel) {
+          channelId = channel.id;
+        } else {
+          return {
+            success: false,
+            error: `Channel ${params.channel} not found`
+          };
+        }
+      }
+
+      const result = await this.client.conversations.replies({
+        channel: channelId,
+        ts: params.ts,
+        limit: params.limit || 10,
+        oldest: params.oldest,
+        latest: params.latest,
+        cursor: params.cursor,
+        inclusive: true
+      });
+
+      if (!result.ok || !result.messages) {
+        return {
+          success: false,
+          error: 'Failed to fetch conversation replies'
+        };
+      }
+
+      const messages: SlackMessage[] = [];
+
+      for (const msg of result.messages) {
+        if (msg.subtype && msg.subtype !== '') {
+          // Skip system messages unless it's a regular message
+          continue;
+        }
+
+        const user = this.usersCache.get(msg.user || '');
+        const message: SlackMessage = {
+          userID: msg.user || '',
+          userName: user?.name || msg.user || 'Unknown',
+          realName: user?.realName || user?.name || msg.user || 'Unknown',
+          channel: channelId,
+          threadTs: msg.thread_ts || '',
+          text: this.processText(msg.text || ''),
+          time: msg.ts || ''
+        };
+
+        messages.push(message);
+      }
+
+      // Add cursor for pagination if there are more messages
+      if (messages.length > 0 && result.has_more && result.response_metadata?.next_cursor) {
+        messages[messages.length - 1].cursor = result.response_metadata.next_cursor;
+      }
+
+      return {
+        success: true,
+        data: messages
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async searchMessages(params: {
+    query: string;
+    count?: number;
+    page?: number;
+    sort?: 'score' | 'timestamp';
+    sort_dir?: 'asc' | 'desc';
+  }): Promise<ApiResponse<SlackMessage[]>> {
+    try {
+      const result = await this.client.search.messages({
+        query: params.query,
+        count: params.count || 20,
+        page: params.page || 1,
+        sort: params.sort || 'timestamp',
+        sort_dir: params.sort_dir || 'desc'
+      });
+
+      if (!result.ok || !result.messages?.matches) {
+        return {
+          success: false,
+          error: 'Failed to search messages'
+        };
+      }
+
+      const messages: SlackMessage[] = [];
+
+      for (const match of result.messages.matches) {
+        const user = this.usersCache.get(match.user || '');
+        const channel = this.channelsCache.get(match.channel?.id || '');
+        
+        const message: SlackMessage = {
+          userID: match.user || '',
+          userName: user?.name || match.username || 'Unknown',
+          realName: user?.realName || user?.name || match.username || 'Unknown',
+          channel: match.channel?.id || '',
+          threadTs: match.ts || '',
+          text: this.processText(match.text || ''),
+          time: match.ts || ''
+        };
+
+        messages.push(message);
+      }
+
+      return {
+        success: true,
+        data: messages
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  async addMessage(params: {
+    channel: string;
+    text: string;
+    thread_ts?: string;
+  }): Promise<ApiResponse<any>> {
+    try {
+      if (!this.config.addMessageToolEnabled) {
+        return {
+          success: false,
+          error: 'Message posting is disabled'
+        };
+      }
+
+      // Resolve channel name to ID if needed
+      let channelId = params.channel;
+      if (params.channel.startsWith('#')) {
+        const channelName = params.channel.substring(1);
+        const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
+        if (channel) {
+          channelId = channel.id;
+        } else {
+          return {
+            success: false,
+            error: `Channel ${params.channel} not found`
+          };
+        }
+      }
+
+      // Check if channel is allowed
+      if (this.config.allowedChannels && this.config.allowedChannels.length > 0) {
+        const channelInfo = this.channelsCache.get(channelId);
+        const channelName = channelInfo?.name || channelId;
+        
+        if (!this.config.allowedChannels.includes(channelId) && 
+            !this.config.allowedChannels.includes(`#${channelName}`)) {
+          return {
+            success: false,
+            error: `Posting to channel ${params.channel} is not allowed`
+          };
+        }
+      }
+
+      const result = await this.client.chat.postMessage({
+        channel: channelId,
+        text: params.text,
+        thread_ts: params.thread_ts
+      });
+
+      if (!result.ok) {
+        return {
+          success: false,
+          error: `Failed to post message: ${result.error}`
+        };
+      }
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
   private processText(text: string): string {
     // Basic text processing - convert user/channel mentions
     return text
