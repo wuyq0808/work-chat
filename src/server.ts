@@ -69,16 +69,21 @@ const TOOLS = [
 
 // Homepage route with basic URL authentication
 app.get('/', (req, res) => {
-  const secretCode = 'sk-7x9m2p8q4w6e1r5t3y8u9i0o7p6a5s4d2f1g3h6j8k9l';
-  const providedCode = req.query.auth as string;
+  const apiKey = process.env.API_KEY;
+  const providedApiKey = req.query.apikey as string;
   
-  if (providedCode !== secretCode) {
+  if (!apiKey) {
+    console.warn('Warning: API_KEY environment variable not set');
+    return res.status(500).send('Server configuration error');
+  }
+  
+  if (providedApiKey !== apiKey) {
     return res.status(401).send(`
       <html>
         <head><title>Access Denied</title></head>
         <body>
           <h1>🔒 Access Denied</h1>
-          <p>Invalid authentication code required in URL.</p>
+          <p>Invalid API key required in URL.</p>
           <p>Please contact the administrator for access.</p>
         </body>
       </html>
