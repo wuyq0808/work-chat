@@ -3,14 +3,10 @@ import type { Member } from '@slack/web-api/dist/types/response/UsersListRespons
 import type { Channel } from '@slack/web-api/dist/types/response/ConversationsListResponse';
 import type { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import type { Match } from '@slack/web-api/dist/types/response/SearchMessagesResponse';
-import fs from 'fs/promises';
-import path from 'path';
 
 export interface SlackConfig {
   userToken?: string;
   addMessageToolEnabled?: boolean;
-  usersCache?: string;
-  channelsCache?: string;
 }
 
 
@@ -28,11 +24,9 @@ export class SlackMCPClient {
   private usersCache: Map<string, Member> = new Map();
   private usersInvCache: Map<string, string> = new Map();
   private channelsCache: Map<string, Channel> = new Map();
-  private readonly cacheDir: string;
 
   constructor(config: SlackConfig) {
     this.config = config;
-    this.cacheDir = path.join(process.cwd(), '.cache');
     
     // Use user token
     const token = config.userToken;
@@ -43,93 +37,9 @@ export class SlackMCPClient {
     this.client = new WebClient(token);
   }
 
-  private async ensureCacheDir(): Promise<void> {
-    try {
-      await fs.mkdir(this.cacheDir, { recursive: true });
-    } catch (error) {
-      // Directory might already exist
-    }
-  }
 
-  private async loadUsersFromCache(): Promise<boolean> {
+  async getUsers(): Promise<ApiResponse<Member[]>> {
     try {
-      await this.ensureCacheDir();
-      const cacheFile = this.config.usersCache || path.join(this.cacheDir, 'users.json');
-      const data = await fs.readFile(cacheFile, 'utf-8');
-      const cached = JSON.parse(data);
-      
-      this.usersCache.clear();
-      this.usersInvCache.clear();
-      
-      for (const user of cached.users || []) {
-        this.usersCache.set(user.id, user);
-        this.usersInvCache.set(user.name, user.id);
-      }
-      
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  private async saveUsersToCache(): Promise<void> {
-    try {
-      await this.ensureCacheDir();
-      const cacheFile = this.config.usersCache || path.join(this.cacheDir, 'users.json');
-      const data = {
-        users: Array.from(this.usersCache.values()),
-        timestamp: new Date().toISOString()
-      };
-      await fs.writeFile(cacheFile, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.warn('Failed to save users cache:', error);
-    }
-  }
-
-  private async loadChannelsFromCache(): Promise<boolean> {
-    try {
-      await this.ensureCacheDir();
-      const cacheFile = this.config.channelsCache || path.join(this.cacheDir, 'channels.json');
-      const data = await fs.readFile(cacheFile, 'utf-8');
-      const cached = JSON.parse(data);
-      
-      this.channelsCache.clear();
-      
-      for (const channel of cached.channels || []) {
-        this.channelsCache.set(channel.id, channel);
-      }
-      
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  private async saveChannelsToCache(): Promise<void> {
-    try {
-      await this.ensureCacheDir();
-      const cacheFile = this.config.channelsCache || path.join(this.cacheDir, 'channels.json');
-      const data = {
-        channels: Array.from(this.channelsCache.values()),
-        timestamp: new Date().toISOString()
-      };
-      await fs.writeFile(cacheFile, JSON.stringify(data, null, 2));
-    } catch (error) {
-      console.warn('Failed to save channels cache:', error);
-    }
-  }
-
-  async refreshUsers(): Promise<ApiResponse<Member[]>> {
-    try {
-      // Try loading from cache first
-      if (await this.loadUsersFromCache() && this.usersCache.size > 0) {
-        return {
-          success: true,
-          data: Array.from(this.usersCache.values())
-        };
-      }
-
-      // Fetch from API if cache miss
       const result = await this.client.users.list({
         limit: 1000
       });
@@ -151,9 +61,6 @@ export class SlackMCPClient {
         }
       }
 
-      // Save to cache
-      await this.saveUsersToCache();
-
       return {
         success: true,
         data: Array.from(this.usersCache.values())
@@ -166,52 +73,37 @@ export class SlackMCPClient {
     }
   }
 
-  async refreshChannels(): Promise<ApiResponse<Channel[]>> {
+  async listChannels(cursor?: string, limit?: number): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
     try {
-      // Try loading from cache first
-      if (await this.loadChannelsFromCache() && this.channelsCache.size > 0) {
+      const types = ['public_channel', 'private_channel', 'mpim', 'im'];
+      
+      const result = await this.client.conversations.list({
+        types: types.join(','),
+        limit: Math.min(limit || 10, 100),
+        cursor: cursor
+      });
+
+      if (!result.ok || !result.channels) {
         return {
-          success: true,
-          data: Array.from(this.channelsCache.values())
+          success: false,
+          error: 'Failed to fetch channels from Slack API'
         };
       }
 
-      // Fetch from API if cache miss
-      const types = ['public_channel', 'private_channel', 'mpim', 'im'];
-      let cursor: string | undefined;
       const allChannels: Channel[] = [];
-
-      do {
-        const result = await this.client.conversations.list({
-          types: types.join(','),
-          limit: 999,
-          exclude_archived: true,
-          cursor
-        });
-
-        if (!result.ok || !result.channels) {
-          return {
-            success: false,
-            error: 'Failed to fetch channels from Slack API'
-          };
+      for (const channel of result.channels) {
+        if (channel.id && channel.name) {
+          this.channelsCache.set(channel.id, channel);
+          allChannels.push(channel);
         }
-
-        for (const channel of result.channels) {
-          if (channel.id && channel.name) {
-            this.channelsCache.set(channel.id, channel);
-            allChannels.push(channel);
-          }
-        }
-
-        cursor = result.response_metadata?.next_cursor;
-      } while (cursor);
-
-      // Save to cache
-      await this.saveChannelsToCache();
+      }
 
       return {
         success: true,
-        data: allChannels
+        data: allChannels,
+        ...(result.response_metadata?.next_cursor && {
+          nextCursor: result.response_metadata.next_cursor
+        })
       };
     } catch (error) {
       return {
@@ -221,15 +113,8 @@ export class SlackMCPClient {
     }
   }
 
-  async getChannels(): Promise<ApiResponse<Channel[]>> {
-    if (this.channelsCache.size === 0) {
-      return await this.refreshChannels();
-    }
-    
-    return {
-      success: true,
-      data: Array.from(this.channelsCache.values())
-    };
+  async getChannels(cursor?: string, limit?: number): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
+    return await this.listChannels(cursor, limit);
   }
 
   async getConversationHistory(params: {

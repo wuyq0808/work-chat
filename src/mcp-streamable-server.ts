@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -38,8 +37,7 @@ export class SlackStreamableMCPServer {
         throw new Error('Slack client not initialized');
       }
 
-      await this.slackClient.refreshUsers();
-      await this.slackClient.refreshChannels();
+      await this.slackClient.getChannels();
       
       const historyResult = await this.slackClient.getConversationHistory({
         channel: channel_id,
@@ -68,15 +66,17 @@ export class SlackStreamableMCPServer {
     // Register channels_list tool
     server.registerTool('channels_list', {
       title: 'List Slack Channels',
-      description: 'List all accessible Slack channels',
-      inputSchema: {}
-    }, async () => {
+      description: 'List all accessible Slack channels with pagination support',
+      inputSchema: {
+        cursor: z.string().optional().describe('Pagination cursor'),
+        limit: z.number().optional().describe('Number of channels (default: 10, max: 100)')
+      }
+    }, async ({ cursor, limit }) => {
       if (!this.slackClient) {
         throw new Error('Slack client not initialized');
       }
 
-      await this.slackClient.refreshChannels();
-      const channelsResult = await this.slackClient.getChannels();
+      const channelsResult = await this.slackClient.getChannels(cursor, limit);
       
       if (channelsResult.success && channelsResult.data) {
         let content = 'id,name,is_private,is_member\n';
@@ -84,7 +84,7 @@ export class SlackStreamableMCPServer {
           content += `${channel.id},${channel.name || 'unnamed'},${channel.is_private || false},${channel.is_member || false}\n`;
         });
         
-        return {
+        const response: any = {
           content: [
             {
               type: "text", 
@@ -92,6 +92,13 @@ export class SlackStreamableMCPServer {
             }
           ]
         };
+
+        // Include nextCursor if more results exist
+        if (channelsResult.nextCursor) {
+          response.nextCursor = channelsResult.nextCursor;
+        }
+        
+        return response;
       } else {
         throw new Error(channelsResult.error || 'Failed to fetch channels');
       }
@@ -111,8 +118,7 @@ export class SlackStreamableMCPServer {
         throw new Error('Slack client not initialized');
       }
 
-      await this.slackClient.refreshUsers();
-      await this.slackClient.refreshChannels();
+      await this.slackClient.getChannels();
       
       const repliesResult = await this.slackClient.getConversationReplies({
         channel: channel_id,
@@ -154,8 +160,7 @@ export class SlackStreamableMCPServer {
         throw new Error('Slack client not initialized');
       }
 
-      await this.slackClient.refreshUsers();
-      await this.slackClient.refreshChannels();
+      await this.slackClient.getChannels();
       
       const searchResult = await this.slackClient.searchMessages({
         query,
