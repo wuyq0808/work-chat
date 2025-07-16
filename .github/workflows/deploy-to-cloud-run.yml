@@ -57,6 +57,9 @@ jobs:
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
             MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }}
+            SLACK_CLIENT_ID=${{ secrets.SLACK_CLIENT_ID }}
+            SLACK_CLIENT_SECRET=${{ secrets.SLACK_CLIENT_SECRET }}
+            SLACK_STATE_SECRET=${{ secrets.SLACK_STATE_SECRET }}
           env_vars_update_strategy: overwrite
 
       - name: Get service URL
