@@ -14,6 +14,14 @@
         </p>
         
         <p>
+            <label>AI Provider:</label><br>
+            <select id="provider" required>
+                <option value="openai">OpenAI (GPT-4o-mini)</option>
+                <option value="claude">Claude (Claude-3.5-Sonnet)</option>
+            </select>
+        </p>
+        
+        <p>
             <label>Message:</label><br>
             <textarea id="message" rows="4" cols="50" placeholder="List my Slack channels" required></textarea>
         </p>
@@ -44,6 +52,7 @@
             
             const slackToken = document.getElementById('slackToken').value;
             const message = document.getElementById('message').value;
+            const provider = document.getElementById('provider').value;
             const submitBtn = document.getElementById('submitBtn');
             const responseDiv = document.getElementById('response');
             const responseContent = document.getElementById('responseContent');
@@ -54,7 +63,7 @@
             responseContent.textContent = 'Loading...';
             
             try {
-                const response = await fetch('/api/openai/generate', {
+                const response = await fetch('/api/ai/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -62,7 +71,8 @@
                         'X-Slack-User-Token': slackToken
                     },
                     body: JSON.stringify({
-                        input: message
+                        input: message,
+                        provider: provider
                     })
                 });
                 

@@ -3,10 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import OpenAI from 'openai';
 import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
 import { verifyBearerToken, getSlackToken } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
+import { callAI, type AIProvider } from './services/aiService.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,10 +20,6 @@ app.use(cors());
 app.use(express.json());
 
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 // Homepage route with basic URL authentication
 app.get('/', (req, res) => {
@@ -51,12 +47,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// OpenAI API endpoint
-app.post('/api/openai/generate', asyncHandler(async (req, res) => {
+// AI API endpoint (supports OpenAI and Claude)
+app.post('/api/ai/generate', asyncHandler(async (req, res) => {
   // Bearer token authentication check
   verifyBearerToken(req);
 
-  const { input } = req.body;
+  const { input, provider } = req.body;
   
   if (!input) {
     return res.status(400).json({
@@ -65,31 +61,15 @@ app.post('/api/openai/generate', asyncHandler(async (req, res) => {
   }
 
   // Get Slack user token from header
-  const slack_user_token = getSlackToken(req);
+  const slackToken = getSlackToken(req);
 
-  const response = await openai.responses.create({
-    model: "gpt-4o-mini",
-    input: input,
-    tools: [
-      {
-        type: "mcp",
-        server_label: "slack-mcp",
-        server_url: process.env.MCP_SERVER_URL || '',
-        headers: {
-          Authorization: `Bearer ${process.env.API_KEY}`,
-          'X-Slack-User-Token': slack_user_token
-        },
-        require_approval: "never"
-      }
-    ]
+  const response = await callAI({
+    input,
+    slackToken,
+    provider: provider as AIProvider
   });
 
-  res.json({
-    success: true,
-    output: response.output_text || 'No response generated',
-    model: "gpt-4o-mini",
-    usage: response.usage
-  });
+  res.json(response);
 }));
 
 // No OAuth endpoints - using simple basic auth instead
