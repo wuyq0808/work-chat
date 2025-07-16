@@ -38,11 +38,6 @@ export class SlackOAuthService {
         'mpim:history',
         'mpim:read',
         'search:read',
-        'search:read.files',
-        'search:read.im',
-        'search:read.mpim',
-        'search:read.private',
-        'search:read.public'
       ], 
       redirectUri: `${process.env.SLACK_REDIRECT_URI}`
     });
