@@ -20,6 +20,16 @@ const port = process.env.PORT || 5173;
 app.use(cors());
 app.use(express.json());
 
+// Debug middleware for OAuth routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/slack/')) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.log('Cookies:', req.headers.cookie || 'NO COOKIES');
+    console.log('Set-Cookie headers:', res.getHeader('set-cookie') || 'NONE');
+  }
+  next();
+});
+
 // Initialize Slack OAuth service
 const slackOAuthService = new SlackOAuthService();
 

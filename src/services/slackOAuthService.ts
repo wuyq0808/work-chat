@@ -6,6 +6,8 @@ export class SlackOAuthService {
   private installer: InstallProvider;
 
   constructor() {
+    console.log('Initializing SlackOAuthService with state secret:', process.env.SLACK_STATE_SECRET?.substring(0, 10) + '...');
+    
     this.installer = new InstallProvider({
       clientId: process.env.SLACK_CLIENT_ID!,
       clientSecret: process.env.SLACK_CLIENT_SECRET!,
@@ -27,6 +29,12 @@ export class SlackOAuthService {
   // OAuth installation route handler
   handleInstall = asyncHandler(async (req: Request, res: Response) => {
     console.log('Starting OAuth installation flow');
+    console.log('Request headers:', {
+      host: req.headers.host,
+      cookie: req.headers.cookie,
+      'user-agent': req.headers['user-agent']
+    });
+    
     const installUrl = await this.installer.generateInstallUrl({
       scopes:[],
       userScopes: [
@@ -47,12 +55,28 @@ export class SlackOAuthService {
       ], 
       redirectUri: `${process.env.SLACK_REDIRECT_URI}`
     });
+    
+    console.log('Generated install URL:', installUrl);
+    console.log('Response headers about to set:', res.getHeaders());
+    
     res.redirect(installUrl);
   });
 
   // OAuth callback route handler
   handleCallback = asyncHandler(async (req: Request, res: Response) => {
-    await this.installer.handleCallback(req, res, {
+    console.log('OAuth callback received');
+    console.log('Query params:', JSON.stringify(req.query, null, 2));
+    console.log('Headers:', {
+      host: req.headers.host,
+      cookie: req.headers.cookie || 'NO COOKIES',
+      referer: req.headers.referer || 'NO REFERER',
+      'user-agent': req.headers['user-agent']
+    });
+    console.log('State param length:', (req.query.state as string)?.length);
+    console.log('State param preview:', (req.query.state as string)?.substring(0, 100) + '...');
+    
+    try {
+      await this.installer.handleCallback(req, res, {
       success: (installation, _installOptions, req, res) => {
         console.log('OAuth installation successful:', installation.team?.name);
         
@@ -123,6 +147,10 @@ export class SlackOAuthService {
         res.end(htmlResponse);
       }
     });
+    } catch (error) {
+      console.error('Error in handleCallback:', error);
+      throw error;
+    }
   });
 
   // Get the InstallProvider instance (for future use)
