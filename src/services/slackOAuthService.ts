@@ -28,8 +28,23 @@ export class SlackOAuthService {
   handleInstall = asyncHandler(async (req: Request, res: Response) => {
     console.log('Starting OAuth installation flow');
     const installUrl = await this.installer.generateInstallUrl({
-      scopes: ['channels:read', 'chat:write', 'users:read', 'conversations:history'],
-      redirectUri: `${process.env.SLACK_REDIRECT_URI}/slack/oauth_redirect`
+      scopes: [
+        'channels:history',
+        'channels:read',
+        'groups:history',
+        'groups:read',
+        'im:history',
+        'im:read',
+        'mpim:history',
+        'mpim:read',
+        'search:read',
+        'search:read.files',
+        'search:read.im',
+        'search:read.mpim',
+        'search:read.private',
+        'search:read.public'
+      ], 
+      redirectUri: `${process.env.SLACK_REDIRECT_URI}`
     });
     res.redirect(installUrl);
   });
