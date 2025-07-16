@@ -40,8 +40,7 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
           server_label: "slack-mcp",
           server_url: process.env.MCP_SERVER_URL || '',
           headers: {
-            Authorization: `Bearer ${process.env.API_KEY}`,
-            'X-Slack-User-Token': request.slackToken
+            Authorization: `Bearer ${process.env.API_KEY} ${request.slackToken}`
           },
           require_approval: "never"
         }
@@ -73,9 +72,9 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
       mcp_servers: [
         {
           type: "url",
-          url: `${process.env.MCP_SERVER_URL || ''}?slack_token=${encodeURIComponent(request.slackToken)}`,
+          url: process.env.MCP_SERVER_URL || '',
           name: "slack-mcp",
-          authorization_token: process.env.API_KEY
+          authorization_token: `${process.env.API_KEY} ${request.slackToken}`
         }
       ]
     } as any);

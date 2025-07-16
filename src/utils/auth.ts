@@ -29,17 +29,16 @@ export function verifyBearerToken(req: Request): string {
 }
 
 export function getSlackToken(req: Request): string {
-  // Try header first
-  let slackToken = req.headers['x-slack-user-token'] as string;
+  const authHeader = req.headers.authorization;
   
-  // If not in header, try URL parameter
-  if (!slackToken) {
-    slackToken = req.query.slack_token as string;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new AuthError('Authorization header with Bearer token required', 401);
   }
   
-  if (!slackToken) {
-    throw new AuthError('Slack user token required in X-Slack-User-Token header or slack_token URL parameter', 400);
+  const parts = authHeader.split(' ');
+  if (parts.length < 3) {
+    throw new AuthError('Slack user token required as third part of Authorization header (Bearer api_key slack_token)', 400);
   }
   
-  return slackToken;
+  return parts[2]; // Third part is the slack token
 }

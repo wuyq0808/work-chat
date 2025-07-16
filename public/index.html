@@ -67,8 +67,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                        'X-Slack-User-Token': slackToken
+                        'Authorization': `Bearer ${apiKey} ${slackToken}`
                     },
                     body: JSON.stringify({
                         input: message,
