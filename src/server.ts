@@ -74,7 +74,7 @@ app.post('/api/openai/generate', asyncHandler(async (req, res) => {
       {
         type: "mcp",
         server_label: "slack-mcp",
-        server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
+        server_url: process.env.MCP_SERVER_URL || '',
         headers: {
           Authorization: `Bearer ${process.env.API_KEY}`,
           'X-Slack-User-Token': slack_user_token

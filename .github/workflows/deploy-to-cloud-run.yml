@@ -42,19 +42,21 @@ jobs:
           docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$SERVICE_NAME:${{ github.sha }}
 
       - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy $SERVICE_NAME \
-            --image $REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$SERVICE_NAME:${{ github.sha }} \
-            --region $REGION \
-            --platform managed \
-            --allow-unauthenticated \
-            --port 3000 \
-            --max-instances 10 \
-            --memory 512Mi \
-            --cpu 1 \
-            --timeout 300 \
-            --service-account=slack-assistant@$PROJECT_ID.iam.gserviceaccount.com \
-            --set-env-vars="NODE_ENV=production,API_KEY=${{ secrets.API_KEY }},SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }},SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}"
+        uses: 'google-github-actions/deploy-cloudrun@v2'
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          timeout: 300s
+          flags: '--platform=managed --allow-unauthenticated --port=3000 --max-instances=10 --memory=512Mi --cpu=1 --service-account=slack-assistant@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
+          env_vars: |-
+            NODE_ENV=production
+            API_KEY=${{ secrets.API_KEY }}
+            SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }}
+            SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }}
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }}
+          env_vars_update_strategy: overwrite
 
       - name: Get service URL
         run: |
