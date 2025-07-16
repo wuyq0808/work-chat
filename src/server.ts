@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { SlackOAuthService } from './services/slackOAuthService.js';
 import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
 import { verifyBearerToken, getSlackToken } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
@@ -19,7 +20,14 @@ const port = process.env.PORT || 5173;
 app.use(cors());
 app.use(express.json());
 
+// Initialize Slack OAuth service
+const slackOAuthService = new SlackOAuthService();
 
+
+
+// Slack OAuth routes
+app.get('/slack/install', slackOAuthService.handleInstall);
+app.get('/slack/oauth_redirect', slackOAuthService.handleCallback);
 
 // Homepage route with basic URL authentication
 app.get('/', (req, res) => {

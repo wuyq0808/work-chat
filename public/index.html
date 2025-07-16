@@ -7,17 +7,28 @@
     <h1>Slack AI Assistant</h1>
     <p>Ask questions about your Slack workspace</p>
     
+    <div id="installSection">
+        <h3>Install Slack App</h3>
+        <p>To use advanced features with OAuth authentication, install the Slack app:</p>
+        <a href="/slack/install">
+            <img alt="Add to Slack" height="40" width="139" 
+                 src="https://platform.slack-edge.com/img/add_to_slack.png" 
+                 srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x">
+        </a>
+        <p><strong>Note:</strong> You can still use the manual token approach below for testing.</p>
+    </div>
+    
     <form id="chatForm">
         <p>
-            <label>Slack Token:</label><br>
+            <label>Slack Token (or input manually):</label><br>
             <input type="password" id="slackToken" placeholder="xoxp-your-slack-user-token" size="50" required>
         </p>
         
         <p>
             <label>AI Provider:</label><br>
             <select id="provider" required>
+                <option value="claude" selected>Claude (Claude-3.5-Sonnet)</option>
                 <option value="openai">OpenAI (GPT-4o-mini)</option>
-                <option value="claude">Claude (Claude-3.5-Sonnet)</option>
             </select>
         </p>
         
@@ -38,13 +49,31 @@
     </div>
 
     <script>
-        // Get API key from URL parameter
+        // Get API key and optional Slack token from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
+        const slackTokenFromUrl = urlParams.get('slack_token');
+        const teamName = urlParams.get('team_name');
         
         if (!apiKey) {
             document.body.innerHTML = '<h1>Access Denied</h1><p>No API key provided</p>';
             throw new Error('No API key provided');
+        }
+        
+        // Auto-fill Slack token if provided via OAuth
+        if (slackTokenFromUrl) {
+            document.getElementById('slackToken').value = slackTokenFromUrl;
+            
+            // Hide install section since user just completed OAuth
+            document.getElementById('installSection').style.display = 'none';
+        }
+        
+        // Show team name if available
+        if (teamName) {
+            const teamInfo = document.createElement('div');
+            teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
+            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${decodeURIComponent(teamName)}</strong>`;
+            document.getElementById('chatForm').insertBefore(teamInfo, document.getElementById('chatForm').firstChild);
         }
         
         document.getElementById('chatForm').addEventListener('submit', async (e) => {

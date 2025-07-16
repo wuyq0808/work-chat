@@ -11,6 +11,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
     "@modelcontextprotocol/sdk": "^1.15.1",
+    "@slack/oauth": "^3.0.3",
     "@slack/web-api": "^7.9.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
