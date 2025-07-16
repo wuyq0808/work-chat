@@ -4,8 +4,9 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import OpenAI from 'openai';
-import { SlackMCPClient } from './lib/slack-client.js';
 import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
+import { verifyBearerToken, getSlackToken } from './utils/auth.js';
+import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,8 +19,6 @@ const port = process.env.PORT || 5173;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Slack client (will be created per request with dynamic token)
-let slackClient: SlackMCPClient;
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -53,144 +52,82 @@ app.get('/', (req, res) => {
 });
 
 // OpenAI API endpoint
-app.post('/api/openai/generate', async (req, res) => {
-  try {
-    // Bearer token authentication check
-    const authHeader = req.headers.authorization;
-    const expectedToken = process.env.API_KEY;
-    
-    if (!expectedToken) {
-      console.warn('Warning: API_KEY environment variable not set');
-    }
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized - Bearer token required'
-      });
-    }
-    
-    const token = authHeader.split(' ')[1];
-    if (expectedToken && token !== expectedToken) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized - Invalid token'
-      });
-    }
+app.post('/api/openai/generate', asyncHandler(async (req, res) => {
+  // Bearer token authentication check
+  verifyBearerToken(req);
 
-    const { input } = req.body;
-    
-    if (!input) {
-      return res.status(400).json({
-        error: 'Input text is required'
-      });
-    }
-
-    // Get Slack user token from header
-    const slack_user_token = req.headers['x-slack-user-token'] as string;
-    if (!slack_user_token) {
-      return res.status(400).json({
-        error: 'Slack user token required in X-Slack-User-Token header'
-      });
-    }
-
-    const response = await openai.responses.create({
-      model: "gpt-4o-mini",
-      input: input,
-      tools: [
-        {
-          type: "mcp",
-          server_label: "slack-mcp",
-          server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
-          headers: {
-            Authorization: `Bearer ${process.env.API_KEY}`,
-            'X-Slack-User-Token': slack_user_token
-          },
-          require_approval: "never"
-        }
-      ]
-    });
-
-    res.json({
-      success: true,
-      output: response.output_text || 'No response generated',
-      model: "gpt-4o-mini",
-      usage: response.usage
-    });
-
-  } catch (error) {
-    console.error('OpenAI API error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to generate response'
+  const { input } = req.body;
+  
+  if (!input) {
+    return res.status(400).json({
+      error: 'Input text is required'
     });
   }
-});
+
+  // Get Slack user token from header
+  const slack_user_token = getSlackToken(req);
+
+  const response = await openai.responses.create({
+    model: "gpt-4o-mini",
+    input: input,
+    tools: [
+      {
+        type: "mcp",
+        server_label: "slack-mcp",
+        server_url: "https://slack-assistant-118769120637.us-central1.run.app/api/mcp",
+        headers: {
+          Authorization: `Bearer ${process.env.API_KEY}`,
+          'X-Slack-User-Token': slack_user_token
+        },
+        require_approval: "never"
+      }
+    ]
+  });
+
+  res.json({
+    success: true,
+    output: response.output_text || 'No response generated',
+    model: "gpt-4o-mini",
+    usage: response.usage
+  });
+}));
 
 // No OAuth endpoints - using simple basic auth instead
 
 // MCP Streamable HTTP endpoint - handles both GET and POST
-app.all('/api/mcp', async (req, res) => {
-  try {
-    // Bearer token authentication check
-    const authHeader = req.headers.authorization;
-    const expectedToken = process.env.API_KEY;
-    
-    if (!expectedToken) {
-      console.warn('Warning: API_KEY environment variable not set');
-    }
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: 'Unauthorized - Bearer token required'
-      });
-    }
-    
-    const token = authHeader.split(' ')[1];
-    if (expectedToken && token !== expectedToken) {
-      return res.status(401).json({
-        error: 'Unauthorized - Invalid token'
-      });
-    }
+app.all('/api/mcp', asyncHandler(async (req, res) => {
+  // Bearer token authentication check
+  verifyBearerToken(req);
 
-    // Get Slack user token from header
-    const slackUserToken = req.headers['x-slack-user-token'] as string;
-    if (!slackUserToken) {
-      return res.status(400).json({
-        error: 'Slack user token required in X-Slack-User-Token header'
-      });
-    }
+  // Get Slack user token from header
+  const slackUserToken = getSlackToken(req);
 
-    // Create a new Streamable MCP server instance for this connection
-    const streamableServer = new SlackStreamableMCPServer();
-    
-    // Initialize Slack client
-    streamableServer.initializeSlackClient({
-      userToken: slackUserToken,
-      addMessageToolEnabled: false
-    });
+  // Create a new Streamable MCP server instance for this connection
+  const streamableServer = new SlackStreamableMCPServer();
+  
+  // Initialize Slack client
+  streamableServer.initializeSlackClient({
+    userToken: slackUserToken,
+    addMessageToolEnabled: false
+  });
 
-    // Create MCP server and transport
-    const server = streamableServer.createServer();
-    const transport = streamableServer.createTransport();
+  // Create MCP server and transport
+  const server = streamableServer.createServer();
+  const transport = streamableServer.createTransport();
 
-    // Clean up on request close
-    res.on('close', () => {
-      transport.close();
-      server.close();
-    });
+  // Clean up on request close
+  res.on('close', () => {
+    transport.close();
+    server.close();
+  });
 
-    // Connect server to transport and handle the request
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
+  // Connect server to transport and handle the request
+  await server.connect(transport);
+  await transport.handleRequest(req, res, req.body);
+}));
 
-  } catch (error) {
-    console.error('MCP Streamable HTTP error:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : 'Internal error'
-    });
-  }
-});
+// Error handling middleware (must be last)
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
