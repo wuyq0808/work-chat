@@ -24,8 +24,15 @@ app.use(express.json());
 app.use((req, res, next) => {
   if (req.path.startsWith('/slack/')) {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    console.log('Cookies:', req.headers.cookie || 'NO COOKIES');
-    console.log('Set-Cookie headers:', res.getHeader('set-cookie') || 'NONE');
+    console.log('Request Cookies:', req.headers.cookie || 'NO COOKIES');
+    
+    // Hook into res.writeHead to log outgoing headers
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = function(statusCode: number, headers?: any) {
+      console.log('Response Status:', statusCode);
+      console.log('Response Headers:', headers || res.getHeaders());
+      return originalWriteHead(statusCode, headers);
+    };
   }
   next();
 });

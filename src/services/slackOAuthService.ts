@@ -57,9 +57,12 @@ export class SlackOAuthService {
     });
     
     console.log('Generated install URL:', installUrl);
-    console.log('Response headers about to set:', res.getHeaders());
+    console.log('Response headers before redirect:', res.getHeaders());
     
+    // The redirect happens here - let's see what headers are set
     res.redirect(installUrl);
+    
+    console.log('Response headers after redirect:', res.getHeaders());
   });
 
   // OAuth callback route handler
