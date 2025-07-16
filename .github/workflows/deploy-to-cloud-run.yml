@@ -55,6 +55,7 @@ jobs:
             SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }}
             SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
             MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }}
           env_vars_update_strategy: overwrite
 

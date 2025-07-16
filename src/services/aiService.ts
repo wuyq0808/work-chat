@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export type AIProvider = 'openai' | 'claude';
 
+
 export interface AIRequest {
   input: string;
   slackToken: string;
@@ -22,7 +23,10 @@ const openai = new OpenAI({
 });
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    'anthropic-beta': 'mcp-client-2025-04-04'
+  }
 });
 
 export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
@@ -65,11 +69,19 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 1024,
-      messages: [{ role: 'user', content: request.input }]
-    });
+      messages: [{ role: 'user', content: request.input }],
+      mcp_servers: [
+        {
+          type: "url",
+          url: `${process.env.MCP_SERVER_URL || ''}?slack_token=${encodeURIComponent(request.slackToken)}`,
+          name: "slack-mcp",
+          authorization_token: process.env.API_KEY
+        }
+      ]
+    } as any);
 
     const output = response.content
-      .filter(block => block.type === 'text')
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
       .map(block => block.text)
       .join('\n');
 
@@ -77,7 +89,7 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
       success: true,
       output: output || 'No response generated',
       model: "claude-3-5-sonnet-20241022",
-      usage: response.usage
+      usage: response.usage,
     };
   } catch (error) {
     return {

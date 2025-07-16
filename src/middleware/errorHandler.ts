@@ -1,7 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AuthError } from '../utils/auth.js';
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction) {
+  console.log(`Error: ${req.method} ${req.url} - ${err.message} - Headers: ${JSON.stringify(req.headers, null, 0)} - Body: ${JSON.stringify(req.body, null, 0)}`);
+  
   if (err instanceof AuthError) {
     return res.status(err.statusCode).json({
       error: err.message

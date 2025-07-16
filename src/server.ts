@@ -79,7 +79,7 @@ app.all('/api/mcp', asyncHandler(async (req, res) => {
   // Bearer token authentication check
   verifyBearerToken(req);
 
-  // Get Slack user token from header
+  // Get Slack user token from header or URL parameter
   const slackUserToken = getSlackToken(req);
 
   // Create a new Streamable MCP server instance for this connection
