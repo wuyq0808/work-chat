@@ -12,6 +12,26 @@ export class SlackOAuthService {
       clientId: process.env.SLACK_CLIENT_ID!,
       clientSecret: process.env.SLACK_CLIENT_SECRET!,
       stateSecret: process.env.SLACK_STATE_SECRET!,
+      installUrlOptions: {
+        scopes: [],  // Bot scopes (empty for user token only)
+        userScopes: [
+          'channels:history',
+          'channels:read',
+          'groups:history',
+          'groups:read',
+          'im:history',
+          'im:read',
+          'mpim:history',
+          'mpim:read',
+          'search:read',
+          'search:read.files',
+          'search:read.im',
+          'search:read.mpim',
+          'search:read.private',
+          'search:read.public'
+        ],
+        redirectUri: process.env.SLACK_REDIRECT_URI
+      },
       installationStore: {
         storeInstallation: async (installation) => {
           console.log('OAuth installation stored:', installation.team?.name);
@@ -35,34 +55,9 @@ export class SlackOAuthService {
       'user-agent': req.headers['user-agent']
     });
     
-    const installUrl = await this.installer.generateInstallUrl({
-      scopes:[],
-      userScopes: [
-        'channels:history',
-        'channels:read',
-        'groups:history',
-        'groups:read',
-        'im:history',
-        'im:read',
-        'mpim:history',
-        'mpim:read',
-        'search:read',
-        'search:read.files',
-        'search:read.im',
-        'search:read.mpim',
-        'search:read.private',
-        'search:read.public'
-      ], 
-      redirectUri: `${process.env.SLACK_REDIRECT_URI}`
-    });
-    
-    console.log('Generated install URL:', installUrl);
-    console.log('Response headers before redirect:', res.getHeaders());
-    
-    // The redirect happens here - let's see what headers are set
-    res.redirect(installUrl);
-    
-    console.log('Response headers after redirect:', res.getHeaders());
+    // Use handleInstallPath instead of manually generating URL and redirecting
+    // This method handles both URL generation AND cookie setting
+    await this.installer.handleInstallPath(req, res);
   });
 
   // OAuth callback route handler
