@@ -9,9 +9,6 @@ export interface SlackConfig {
   addMessageToolEnabled?: boolean;
 }
 
-
-
-
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -27,27 +24,26 @@ export class SlackMCPClient {
 
   constructor(config: SlackConfig) {
     this.config = config;
-    
+
     // Use user token
     const token = config.userToken;
     if (!token) {
       throw new Error('userToken must be provided');
     }
-    
+
     this.client = new WebClient(token);
   }
-
 
   async getUsers(): Promise<ApiResponse<Member[]>> {
     try {
       const result = await this.client.users.list({
-        limit: 1000
+        limit: 1000,
       });
 
       if (!result.ok || !result.members) {
         return {
           success: false,
-          error: 'Failed to fetch users from Slack API'
+          error: 'Failed to fetch users from Slack API',
         };
       }
 
@@ -63,30 +59,33 @@ export class SlackMCPClient {
 
       return {
         success: true,
-        data: Array.from(this.usersCache.values())
+        data: Array.from(this.usersCache.values()),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
-  async listChannels(cursor?: string, limit?: number): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
+  async listChannels(
+    cursor?: string,
+    limit?: number
+  ): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
     try {
       const types = ['public_channel', 'private_channel', 'mpim', 'im'];
-      
+
       const result = await this.client.conversations.list({
         types: types.join(','),
         limit: Math.min(limit || 10, 100),
-        cursor: cursor
+        cursor: cursor,
       });
 
       if (!result.ok || !result.channels) {
         return {
           success: false,
-          error: 'Failed to fetch channels from Slack API'
+          error: 'Failed to fetch channels from Slack API',
         };
       }
 
@@ -102,18 +101,21 @@ export class SlackMCPClient {
         success: true,
         data: allChannels,
         ...(result.response_metadata?.next_cursor && {
-          nextCursor: result.response_metadata.next_cursor
-        })
+          nextCursor: result.response_metadata.next_cursor,
+        }),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
-  async getChannels(cursor?: string, limit?: number): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
+  async getChannels(
+    cursor?: string,
+    limit?: number
+  ): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
     return await this.listChannels(cursor, limit);
   }
 
@@ -129,13 +131,15 @@ export class SlackMCPClient {
       let channelId = params.channel;
       if (params.channel.startsWith('#')) {
         const channelName = params.channel.substring(1);
-        const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
+        const channel = Array.from(this.channelsCache.values()).find(
+          c => c.name === channelName
+        );
         if (channel?.id) {
           channelId = channel.id;
         } else {
           return {
             success: false,
-            error: `Channel ${params.channel} not found`
+            error: `Channel ${params.channel} not found`,
           };
         }
       }
@@ -146,13 +150,13 @@ export class SlackMCPClient {
         oldest: params.oldest,
         latest: params.latest,
         cursor: params.cursor,
-        inclusive: false
+        inclusive: false,
       });
 
       if (!result.ok || !result.messages) {
         return {
           success: false,
-          error: 'Failed to fetch conversation history'
+          error: 'Failed to fetch conversation history',
         };
       }
 
@@ -160,7 +164,7 @@ export class SlackMCPClient {
 
       for (const msg of result.messages) {
         const message = msg as MessageElement;
-        
+
         if (message.subtype && message.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
@@ -169,7 +173,7 @@ export class SlackMCPClient {
         // Process the message text
         const processedMessage: MessageElement = {
           ...message,
-          text: this.processText(message.text || '')
+          text: this.processText(message.text || ''),
         };
 
         messages.push(processedMessage);
@@ -180,12 +184,12 @@ export class SlackMCPClient {
 
       return {
         success: true,
-        data: messages
+        data: messages,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -203,13 +207,15 @@ export class SlackMCPClient {
       let channelId = params.channel;
       if (params.channel.startsWith('#')) {
         const channelName = params.channel.substring(1);
-        const channel = Array.from(this.channelsCache.values()).find(c => c.name === channelName);
+        const channel = Array.from(this.channelsCache.values()).find(
+          c => c.name === channelName
+        );
         if (channel?.id) {
           channelId = channel.id;
         } else {
           return {
             success: false,
-            error: `Channel ${params.channel} not found`
+            error: `Channel ${params.channel} not found`,
           };
         }
       }
@@ -221,13 +227,13 @@ export class SlackMCPClient {
         oldest: params.oldest,
         latest: params.latest,
         cursor: params.cursor,
-        inclusive: true
+        inclusive: true,
       });
 
       if (!result.ok || !result.messages) {
         return {
           success: false,
-          error: 'Failed to fetch conversation replies'
+          error: 'Failed to fetch conversation replies',
         };
       }
 
@@ -235,7 +241,7 @@ export class SlackMCPClient {
 
       for (const msg of result.messages) {
         const message = msg as MessageElement;
-        
+
         if (message.subtype && message.subtype !== '') {
           // Skip system messages unless it's a regular message
           continue;
@@ -244,7 +250,7 @@ export class SlackMCPClient {
         // Process the message text
         const processedMessage: MessageElement = {
           ...message,
-          text: this.processText(message.text || '')
+          text: this.processText(message.text || ''),
         };
 
         messages.push(processedMessage);
@@ -255,12 +261,12 @@ export class SlackMCPClient {
 
       return {
         success: true,
-        data: messages
+        data: messages,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -278,13 +284,13 @@ export class SlackMCPClient {
         count: params.count || 20,
         page: params.page || 1,
         sort: params.sort || 'timestamp',
-        sort_dir: params.sort_dir || 'desc'
+        sort_dir: params.sort_dir || 'desc',
       });
 
       if (!result.ok || !result.messages?.matches) {
         return {
           success: false,
-          error: 'Failed to search messages'
+          error: 'Failed to search messages',
         };
       }
 
@@ -294,7 +300,7 @@ export class SlackMCPClient {
         // Process the match text
         const processedMatch: Match = {
           ...match,
-          text: this.processText(match.text || '')
+          text: this.processText(match.text || ''),
         };
 
         matches.push(processedMatch);
@@ -302,16 +308,15 @@ export class SlackMCPClient {
 
       return {
         success: true,
-        data: matches
+        data: matches,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
-
 
   private processText(text: string): string {
     // Basic text processing - convert user/channel mentions

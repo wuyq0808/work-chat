@@ -20,27 +20,8 @@ const port = process.env.PORT || 5173;
 app.use(cors());
 app.use(express.json());
 
-// Debug middleware for OAuth routes
-app.use((req, res, next) => {
-  if (req.path.startsWith('/slack/')) {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    console.log('Request Cookies:', req.headers.cookie || 'NO COOKIES');
-    
-    // Hook into res.writeHead to log outgoing headers
-    const originalWriteHead = res.writeHead.bind(res);
-    res.writeHead = function(statusCode: number, headers?: any) {
-      console.log('Response Status:', statusCode);
-      console.log('Response Headers:', headers || res.getHeaders());
-      return originalWriteHead(statusCode, headers);
-    };
-  }
-  next();
-});
-
 // Initialize Slack OAuth service
 const slackOAuthService = new SlackOAuthService();
-
-
 
 // Slack OAuth routes
 app.get('/slack/install', slackOAuthService.handleInstall);
@@ -50,12 +31,12 @@ app.get('/slack/oauth_redirect', slackOAuthService.handleCallback);
 app.get('/', (req, res) => {
   const apiKey = process.env.API_KEY;
   const providedApiKey = req.query.apikey as string;
-  
+
   if (!apiKey) {
     console.warn('Warning: API_KEY environment variable not set');
     return res.status(500).send('Server configuration error');
   }
-  
+
   if (providedApiKey !== apiKey) {
     return res.status(401).send(`
       <html>
@@ -68,68 +49,74 @@ app.get('/', (req, res) => {
       </html>
     `);
   }
-  
+
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // AI API endpoint (supports OpenAI and Claude)
-app.post('/api/ai/generate', asyncHandler(async (req, res) => {
-  // Bearer token authentication check
-  verifyBearerToken(req);
+app.post(
+  '/api/ai/generate',
+  asyncHandler(async (req, res) => {
+    // Bearer token authentication check
+    verifyBearerToken(req);
 
-  const { input, provider } = req.body;
-  
-  if (!input) {
-    return res.status(400).json({
-      error: 'Input text is required'
+    const { input, provider } = req.body;
+
+    if (!input) {
+      return res.status(400).json({
+        error: 'Input text is required',
+      });
+    }
+
+    // Get Slack user token from header
+    const slackToken = getSlackToken(req);
+
+    const response = await callAI({
+      input,
+      slackToken,
+      provider: provider as AIProvider,
     });
-  }
 
-  // Get Slack user token from header
-  const slackToken = getSlackToken(req);
-
-  const response = await callAI({
-    input,
-    slackToken,
-    provider: provider as AIProvider
-  });
-
-  res.json(response);
-}));
+    res.json(response);
+  })
+);
 
 // No OAuth endpoints - using simple basic auth instead
 
 // MCP Streamable HTTP endpoint - handles both GET and POST
-app.all('/api/mcp', asyncHandler(async (req, res) => {
-  // Bearer token authentication check
-  verifyBearerToken(req);
+app.all(
+  '/api/mcp',
+  asyncHandler(async (req, res) => {
+    // Bearer token authentication check
+    verifyBearerToken(req);
 
-  // Get Slack user token from header or URL parameter
-  const slackUserToken = getSlackToken(req);
+    // Get Slack user token from header or URL parameter
+    const slackUserToken = getSlackToken(req);
 
-  // Create a new Streamable MCP server instance for this connection
-  const streamableServer = new SlackStreamableMCPServer();
-  
-  // Initialize Slack client
-  streamableServer.initializeSlackClient({
-    userToken: slackUserToken,
-    addMessageToolEnabled: false
-  });
+    // Create a new Streamable MCP server instance for this connection
+    const streamableServer = new SlackStreamableMCPServer();
 
-  // Create MCP server and transport
-  const server = streamableServer.createServer();
-  const transport = streamableServer.createTransport();
+    // Initialize Slack client
+    streamableServer.initializeSlackClient({
+      userToken: slackUserToken,
+      addMessageToolEnabled: false,
+    });
 
-  // Clean up on request close
-  res.on('close', () => {
-    transport.close();
-    server.close();
-  });
+    // Create MCP server and transport
+    const server = streamableServer.createServer();
+    const transport = streamableServer.createTransport();
 
-  // Connect server to transport and handle the request
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-}));
+    // Clean up on request close
+    res.on('close', () => {
+      transport.close();
+      server.close();
+    });
+
+    // Connect server to transport and handle the request
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  })
+);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
