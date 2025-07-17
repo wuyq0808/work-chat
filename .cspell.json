@@ -22,6 +22,7 @@
     "await",
     "webhook",
     "oauth",
+    "mpim",
     "jwt",
     "cors",
     "json",
