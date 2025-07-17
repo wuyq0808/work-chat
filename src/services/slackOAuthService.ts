@@ -6,10 +6,18 @@ export class SlackOAuthService {
   private installer: InstallProvider;
 
   constructor() {
+    if (
+      !process.env.SLACK_CLIENT_ID ||
+      !process.env.SLACK_CLIENT_SECRET ||
+      !process.env.SLACK_STATE_SECRET
+    ) {
+      throw new Error('Missing required Slack environment variables');
+    }
+
     this.installer = new InstallProvider({
-      clientId: process.env.SLACK_CLIENT_ID!,
-      clientSecret: process.env.SLACK_CLIENT_SECRET!,
-      stateSecret: process.env.SLACK_STATE_SECRET!,
+      clientId: process.env.SLACK_CLIENT_ID,
+      clientSecret: process.env.SLACK_CLIENT_SECRET,
+      stateSecret: process.env.SLACK_STATE_SECRET,
       installUrlOptions: {
         scopes: [], // Bot scopes (empty for user token only)
         userScopes: [
@@ -59,10 +67,12 @@ export class SlackOAuthService {
 
         if (userToken) {
           // Redirect back to main app with token and team info
-          const protocol = (req as any).protocol || 'http';
-          const host = (req as any).get('host') || 'localhost:5173';
-          const redirectUrl = new URL(`${protocol}://${host}/`);
-          redirectUrl.searchParams.set('apikey', process.env.API_KEY!);
+          const redirectUrl = new URL(`${process.env.HOME_PAGE_URL}/`);
+          const apiKey = process.env.API_KEY;
+          if (!apiKey) {
+            throw new Error('API_KEY environment variable is required');
+          }
+          redirectUrl.searchParams.set('apikey', apiKey);
           redirectUrl.searchParams.set('slack_token', userToken);
           redirectUrl.searchParams.set('team_name', teamName || '');
 
