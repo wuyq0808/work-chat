@@ -23,18 +23,18 @@ cp .env.example .env
 
 - `API_KEY` - Bearer token for MCP authentication
 - `OPENAI_API_KEY` - OpenAI API key for AI responses
-- `PORT` - Server port (default: 5173)
+- `PORT` - Server port (default: 3000)
 
 Edit `.env`:
 ```env
 API_KEY=your-secret-api-key
 OPENAI_API_KEY=your-openai-api-key
-PORT=5173
+PORT=3000
 ```
 
 ```bash
 npm run dev
-# Server runs at http://localhost:5173
+# Server runs at http://localhost:3000
 ```
 
 ## MCP Tools

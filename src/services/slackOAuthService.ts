@@ -52,15 +52,29 @@ export class SlackOAuthService {
 
   // OAuth installation route handler
   handleInstall = asyncHandler(async (req: Request, res: Response) => {
-    // Use handleInstallPath instead of manually generating URL and redirecting
-    // This method handles both URL generation AND cookie setting
+    // DEVELOPMENT ONLY: Workaround for localhost OAuth cookie issues
+    // The Slack SDK sets cookies with 'Secure' flag, which prevents them from being sent
+    // over HTTP (localhost). Since Slack doesn't provide official cookie security config,
+    // we intercept and remove the Secure flag for development.
+    if (process.env.NODE_ENV !== 'production') {
+      const originalSetHeader = res.setHeader.bind(res);
+      res.setHeader = function (name: string, value: string | string[]) {
+        if (name.toLowerCase() === 'set-cookie') {
+          // Remove Secure flag for localhost development only
+          if (typeof value === 'string' && value.includes('Secure')) {
+            value = value.replace(/;\s*Secure/gi, '');
+          }
+        }
+        return originalSetHeader(name, value);
+      };
+    }
     await this.installer.handleInstallPath(req, res);
   });
 
   // OAuth callback route handler
   handleCallback = asyncHandler(async (req: Request, res: Response) => {
     await this.installer.handleCallback(req, res, {
-      success: (installation, _installOptions, req, res) => {
+      success: (installation, _installOptions, _req, res) => {
         // Get user token from installation
         const userToken = installation.user?.token;
         const teamName = installation.team?.name;

@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { SlackOAuthService } from './services/slackOAuthService.js';
@@ -16,10 +15,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 5173;
+const port = 3000;
 
 // Middleware
-app.use(cors());
 app.use(express.json());
 
 // Initialize OAuth services
