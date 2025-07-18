@@ -5,7 +5,8 @@ export type AIProvider = 'openai' | 'claude';
 
 export interface AIRequest {
   input: string;
-  slackToken: string;
+  slackToken?: string;
+  azureToken?: string;
   provider?: AIProvider;
 }
 
@@ -30,20 +31,44 @@ const anthropic = new Anthropic({
 
 export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
   try {
+    const tools = [];
+
+    // Add Slack MCP if token provided
+    if (request.slackToken) {
+      if (!process.env.SLACK_MCP_SERVER_URL) {
+        throw new Error('SLACK_MCP_SERVER_URL environment variable is required');
+      }
+      tools.push({
+        type: 'mcp' as const,
+        server_label: 'slack-mcp',
+        server_url: process.env.SLACK_MCP_SERVER_URL,
+        headers: {
+          Authorization: `Bearer ${process.env.API_KEY} ${request.slackToken}`,
+        },
+        require_approval: 'never' as const,
+      });
+    }
+
+    // Add Azure MCP if token provided
+    if (request.azureToken) {
+      if (!process.env.AZURE_MCP_SERVER_URL) {
+        throw new Error('AZURE_MCP_SERVER_URL environment variable is required');
+      }
+      tools.push({
+        type: 'mcp' as const,
+        server_label: 'azure-mcp',
+        server_url: process.env.AZURE_MCP_SERVER_URL,
+        headers: {
+          Authorization: `Bearer ${process.env.API_KEY} ${request.azureToken}`,
+        },
+        require_approval: 'never' as const,
+      });
+    }
+
     const response = await openai.responses.create({
       model: 'gpt-4o-mini',
       input: request.input,
-      tools: [
-        {
-          type: 'mcp',
-          server_label: 'slack-mcp',
-          server_url: process.env.SLACK_MCP_SERVER_URL,
-          headers: {
-            Authorization: `Bearer ${process.env.API_KEY} ${request.slackToken}`,
-          },
-          require_approval: 'never',
-        },
-      ],
+      tools,
     });
 
     return {
@@ -65,18 +90,39 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
 
 export async function callClaude(request: AIRequest): Promise<AIResponse> {
   try {
+    const mcpServers = [];
+
+    // Add Slack MCP if token provided
+    if (request.slackToken) {
+      if (!process.env.SLACK_MCP_SERVER_URL) {
+        throw new Error('SLACK_MCP_SERVER_URL environment variable is required');
+      }
+      mcpServers.push({
+        type: 'url',
+        url: process.env.SLACK_MCP_SERVER_URL,
+        name: 'slack-mcp',
+        authorization_token: `${process.env.API_KEY} ${request.slackToken}`,
+      });
+    }
+
+    // Add Azure MCP if token provided
+    if (request.azureToken) {
+      if (!process.env.AZURE_MCP_SERVER_URL) {
+        throw new Error('AZURE_MCP_SERVER_URL environment variable is required');
+      }
+      mcpServers.push({
+        type: 'url',
+        url: process.env.AZURE_MCP_SERVER_URL,
+        name: 'azure-mcp',
+        authorization_token: `${process.env.API_KEY} ${request.azureToken}`,
+      });
+    }
+
     const response = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 1024,
       messages: [{ role: 'user', content: request.input }],
-      mcp_servers: [
-        {
-          type: 'url',
-          url: process.env.SLACK_MCP_SERVER_URL,
-          name: 'slack-mcp',
-          authorization_token: `${process.env.API_KEY} ${request.slackToken}`,
-        },
-      ],
+      mcp_servers: mcpServers,
     } as any);
 
     const output = response.content
@@ -103,6 +149,16 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
 
 export async function callAI(request: AIRequest): Promise<AIResponse> {
   const provider = request.provider || 'openai';
+
+  // Validate that at least one token is provided
+  if (!request.slackToken && !request.azureToken) {
+    return {
+      success: false,
+      output: '',
+      model: 'unknown',
+      error: 'At least one token (Slack or Azure) must be provided',
+    };
+  }
 
   switch (provider) {
     case 'openai':

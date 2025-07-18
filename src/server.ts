@@ -7,10 +7,12 @@ import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
 import { SlackStreamableMCPServer } from './slack-mcp-server.js';
+import { AzureStreamableMCPServer } from './azure-mcp-server.js';
 import {
   verifyBearerToken,
   getSlackTokenFromCookie,
   getSlackTokenFromAuthHeader,
+  getAzureTokenFromAuthHeader,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAI, type AIProvider } from './services/aiService.js';
@@ -99,7 +101,7 @@ app.post(
 
 // No OAuth endpoints - using simple basic auth instead
 
-// MCP Streamable HTTP endpoint - handles both GET and POST
+// Slack MCP Streamable HTTP endpoint - handles both GET and POST
 app.all(
   '/api/slack-mcp',
   asyncHandler(async (req, res) => {
@@ -134,12 +136,49 @@ app.all(
   })
 );
 
+// Azure MCP Streamable HTTP endpoint - handles both GET and POST
+app.all(
+  '/api/azure-mcp',
+  asyncHandler(async (req, res) => {
+    // Bearer token authentication check
+    verifyBearerToken(req);
+
+    // Get Azure access token from auth header (MCP format)
+    const azureAccessToken = getAzureTokenFromAuthHeader(req);
+
+    // Create a new Streamable MCP server instance for this connection
+    const streamableServer = new AzureStreamableMCPServer();
+
+    // Initialize Azure client
+    streamableServer.initializeAzureClient({
+      accessToken: azureAccessToken,
+    });
+
+    // Create MCP server and transport
+    const server = streamableServer.createServer();
+    const transport = streamableServer.createTransport();
+
+    // Clean up on request close
+    res.on('close', () => {
+      transport.close();
+      server.close();
+    });
+
+    // Connect server to transport and handle the request
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  })
+);
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   console.log(
-    `MCP Streamable HTTP endpoint: http://localhost:${port}/api/slack-mcp`
+    `Slack MCP Streamable HTTP endpoint: http://localhost:${port}/api/slack-mcp`
+  );
+  console.log(
+    `Azure MCP Streamable HTTP endpoint: http://localhost:${port}/api/azure-mcp`
   );
 });

@@ -60,3 +60,22 @@ export function getSlackTokenFromAuthHeader(req: Request): string {
     401
   );
 }
+
+export function getAzureTokenFromAuthHeader(req: Request): string {
+  // For MCP requests, get Azure token from Authorization header
+  // NOTE: This is a hack - Claude LLM can only pass the Authorization header to MCP servers,
+  // so we embed the Azure token in the auth header format: "Bearer API_KEY AZURE_TOKEN"
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const tokens = authHeader.split(' ');
+    if (tokens.length >= 3) {
+      // Format: ["Bearer", "API_KEY", "AZURE_TOKEN"] - get index 2 (Azure token)
+      return tokens[2];
+    }
+  }
+
+  throw new AuthError(
+    'Azure token required in Authorization header for MCP requests',
+    401
+  );
+}
