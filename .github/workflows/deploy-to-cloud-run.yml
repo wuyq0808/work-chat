@@ -52,15 +52,21 @@ jobs:
           env_vars: |-
             NODE_ENV=production
             API_KEY=${{ secrets.API_KEY }}
-            SLACK_ADD_MESSAGE_ENABLED=${{ secrets.SLACK_ADD_MESSAGE_ENABLED }}
-            SLACK_ALLOWED_CHANNELS=${{ secrets.SLACK_ALLOWED_CHANNELS }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-            MCP_SERVER_URL=${{ secrets.MCP_SERVER_URL }}
-            SLACK_CLIENT_ID=${{ secrets.SLACK_CLIENT_ID }}
+            MCP_SERVER_URL=${{ vars.MCP_SERVER_URL }}
+            HOME_PAGE_URL=${{ vars.HOME_PAGE_URL }}
+            SLACK_CLIENT_ID=${{ vars.SLACK_CLIENT_ID }}
             SLACK_CLIENT_SECRET=${{ secrets.SLACK_CLIENT_SECRET }}
             SLACK_STATE_SECRET=${{ secrets.SLACK_STATE_SECRET }}
-            SLACK_REDIRECT_URI=${{ secrets.SLACK_REDIRECT_URI }}
+            SLACK_REDIRECT_URI=${{ vars.SLACK_REDIRECT_URI }}
+            AZURE_CLIENT_ID=${{ vars.AZURE_CLIENT_ID }}
+            AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
+            AZURE_TENANT_ID=${{ vars.AZURE_TENANT_ID }}
+            AZURE_REDIRECT_URI=${{ vars.AZURE_REDIRECT_URI }}
+            ATLASSIAN_CLIENT_ID=${{ vars.ATLASSIAN_CLIENT_ID }}
+            ATLASSIAN_CLIENT_SECRET=${{ secrets.ATLASSIAN_CLIENT_SECRET }}
+            ATLASSIAN_REDIRECT_URI=${{ vars.ATLASSIAN_REDIRECT_URI }}
           env_vars_update_strategy: overwrite
 
       - name: Get service URL
