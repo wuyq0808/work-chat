@@ -79,9 +79,6 @@ export class SlackOAuthService {
         const userToken = installation.user?.token;
         const teamName = installation.team?.name;
 
-        console.log('OAuth Success - userToken:', userToken ? 'present' : 'missing');
-        console.log('OAuth Success - teamName:', teamName || 'missing');
-        console.log('OAuth Success - full installation:', JSON.stringify(installation, null, 2));
 
         if (userToken) {
           // Set secure HttpOnly cookies for token and team info
@@ -97,12 +94,7 @@ export class SlackOAuthService {
           const cookies = [secureCookieString('slack_token', userToken)];
           if (teamName) {
             cookies.push(regularCookieString('team_name', teamName));
-            console.log('Setting team_name cookie:', teamName);
-          } else {
-            console.log('No team name to set in cookie');
           }
-          
-          console.log('Setting cookies:', cookies);
           res.setHeader('Set-Cookie', cookies);
 
           // Redirect back to main app with only API key

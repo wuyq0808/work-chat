@@ -250,10 +250,10 @@ export class SlackStreamableMCPServer {
       sessionIdGenerator: undefined, // Stateless mode for OpenAI compatibility
       enableJsonResponse: true, // Enable JSON responses for OpenAI compatibility
       onsessioninitialized: (sessionId: string) => {
-        console.log(`MCP Streamable session initialized: ${sessionId}`);
+        // Session initialized
       },
       onsessionclosed: (sessionId: string) => {
-        console.log(`MCP Streamable session closed: ${sessionId}`);
+        // Session closed
       },
     });
   }
