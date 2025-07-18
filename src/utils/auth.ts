@@ -49,7 +49,7 @@ export function getSlackTokenFromAuthHeader(req: Request): string {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const tokens = authHeader.split(' ');
-    if (tokens[2]) {
+    if (tokens.length >= 3) {
       // Format: ["Bearer", "API_KEY", "SLACK_TOKEN"] - get index 2 (Slack token)
       return tokens[2];
     }

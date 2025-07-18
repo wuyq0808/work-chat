@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
-import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
+import { SlackStreamableMCPServer } from './slack-mcp-server.js';
 import {
   verifyBearerToken,
   getSlackTokenFromCookie,
@@ -101,7 +101,7 @@ app.post(
 
 // MCP Streamable HTTP endpoint - handles both GET and POST
 app.all(
-  '/api/mcp',
+  '/api/slack-mcp',
   asyncHandler(async (req, res) => {
     // Bearer token authentication check
     verifyBearerToken(req);
@@ -139,5 +139,7 @@ app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
-  console.log(`MCP Streamable HTTP endpoint: http://localhost:${port}/api/mcp`);
+  console.log(
+    `MCP Streamable HTTP endpoint: http://localhost:${port}/api/slack-mcp`
+  );
 });
