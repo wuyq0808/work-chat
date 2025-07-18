@@ -53,6 +53,17 @@ export function getAzureTokenFromCookie(req: Request): string {
   return cookies.azure_token;
 }
 
+export function getAtlassianTokenFromCookie(req: Request): string {
+  // Get from HttpOnly cookie using cookie-parser
+  const cookies = (req as any).cookies || {};
+
+  if (!cookies.atlassian_token) {
+    throw new AuthError('Atlassian token required in cookie', 401);
+  }
+
+  return cookies.atlassian_token;
+}
+
 
 export function getAccessTokenFromAuthHeader(req: Request): string {
   // For MCP requests, get access token from Authorization header

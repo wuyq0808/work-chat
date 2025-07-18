@@ -4,15 +4,10 @@
     <title>Slack AI Assistant</title>
 </head>
 <body>
-    <h1>Slack AI Assistant</h1>
-    <p>Ask questions about your Slack workspace</p>
+    <h1>AI Assistant</h1>
     
     <div id="installSection">
-        <h3>Connect with OAuth</h3>
-        <p>To use advanced features with OAuth authentication, connect your accounts:</p>
-        
         <div id="slackInstall" style="margin-bottom: 15px;">
-            <h4>Slack Integration</h4>
             <a href="/slack/install">
                 <img alt="Add to Slack" height="40" width="139" 
                      src="https://platform.slack-edge.com/img/add_to_slack.png" 
@@ -21,15 +16,13 @@
         </div>
         
         <div id="azureInstall" style="margin-bottom: 15px;">
-            <h4>Microsoft Azure Integration</h4>
             <a href="/azure/install">
                 <img alt="Sign in with Microsoft" height="40" width="215" 
                      src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNzhkNCIvPgo8cGF0aCBkPSJNMTMuNSA4LjVoOXY5aC05VjguNVptMCAxMC41aDl2OWgtOVYxOVptMTAuNS0xMC41aDl2OWgtOVY4LjVabTAgMTAuNWg5djloLTlWMTlaIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSI0NSIgeT0iMjQiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5TaWduIGluIHdpdGggTWljcm9zb2Z0PC90ZXh0Pgo8L3N2Zz4K">
             </a>
         </div>
         
-        <div style="margin-bottom: 15px;">
-            <h4>Atlassian Integration (Jira & Confluence)</h4>
+        <div id="atlassianInstall" style="margin-bottom: 15px;">
             <a href="/atlassian/install">
                 <img alt="Connect with Atlassian" height="40" width="215" 
                      src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNTJjYyIvPgo8cGF0aCBkPSJNMTAuNSA4LjVoNXY1aC01VjguNVptNiAwaDV2NWgtNVY4LjVabTAgNmg1djVoLTVWMTQuNVptNiAwaDV2NWgtNVYxNC41WiIgZmlsbD0id2hpdGUiLz4KPHRleHQgeD0iMzAiIHk9IjI0IiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5Db25uZWN0IHdpdGggQXRsYXNzaWFuPC90ZXh0Pgo8L3N2Zz4K">
@@ -50,7 +43,9 @@
         
         <p>
             <label>Message:</label><br>
-            <textarea id="message" rows="4" cols="50" placeholder="List my Slack channels" required></textarea>
+            <textarea id="message" rows="4" cols="50" placeholder="1. list 2 message from slack mcp 
+2. list 2 message from azure mcp" required>1. list 2 message from slack mcp 
+2. list 2 message from azure mcp</textarea>
         </p>
         
         <p>
@@ -68,7 +63,6 @@
         // Get API key from URL parameters (tokens now come from cookies)
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
-        const atlassianTokenFromUrl = urlParams.get('atlassian_token');
         
         // Get tokens from cookies (secure approach)
         function getCookie(name) {
@@ -83,63 +77,54 @@
         const azureTokenFromCookie = getCookie('azure_token');
         const azureUserNameFromCookie = getCookie('azure_user_name');
         const azureUserEmailFromCookie = getCookie('azure_user_email');
+        const atlassianTokenFromCookie = getCookie('atlassian_token');
+        const atlassianUserNameFromCookie = getCookie('atlassian_user_name');
+        const atlassianUserEmailFromCookie = getCookie('atlassian_user_email');
         
-        console.log('Frontend - slackTokenFromCookie:', slackTokenFromCookie ? 'present' : 'missing');
-        console.log('Frontend - teamNameFromCookie:', teamNameFromCookie || 'missing');
-        console.log('Frontend - azureTokenFromCookie:', azureTokenFromCookie ? 'present' : 'missing');
-        console.log('Frontend - all cookies:', document.cookie);
-        const userName = urlParams.get('user_name');
-        const userEmail = urlParams.get('user_email');
-        const atlassianSites = urlParams.get('atlassian_sites');
         
         if (!apiKey) {
             document.body.innerHTML = '<h1>Access Denied</h1><p>No API key provided</p>';
             throw new Error('No API key provided');
         }
         
-        // Handle Slack connection status
-        if (slackTokenFromCookie) {
+        // Handle Slack connection status (check for team_name since slack_token is HttpOnly)
+        if (teamNameFromCookie && teamNameFromCookie !== 'null') {
             // Replace install button with connected banner
             const teamInfo = document.createElement('div');
             teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
-            const teamName = teamNameFromCookie || 'Unknown Workspace';
-            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamName}</strong>`;
+            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamNameFromCookie}</strong>`;
             document.getElementById('slackInstall').replaceWith(teamInfo);
         }
         
-        // Handle Azure connection status
-        if (azureTokenFromCookie) {
+        // Handle Azure connection status (check for user_name since azure_token is HttpOnly)
+        if (azureUserNameFromCookie && azureUserNameFromCookie !== 'null') {
             // Replace install button with connected banner
             const userInfo = document.createElement('div');
             userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f0ff; border-radius: 5px; color: #0078d4;';
-            const userName = azureUserNameFromCookie || 'Azure User';
             const emailText = azureUserEmailFromCookie ? ` (${azureUserEmailFromCookie})` : '';
-            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${userName}${emailText}</strong>`;
+            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${azureUserNameFromCookie}${emailText}</strong>`;
             document.getElementById('azureInstall').replaceWith(userInfo);
         }
         
-        // Show user info if available (Atlassian OAuth)
-        if (atlassianTokenFromUrl && userName) {
+        // Handle Atlassian connection status (check for user_name since atlassian_token is HttpOnly)
+        if (atlassianUserNameFromCookie && atlassianUserNameFromCookie !== 'null') {
+            // Replace install button with connected banner
             const userInfo = document.createElement('div');
             userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f4ff; border-radius: 5px; color: #0052cc;';
-            const emailText = userEmail ? ` (${decodeURIComponent(userEmail)})` : '';
-            const sitesText = atlassianSites ? ` - Sites: ${decodeURIComponent(atlassianSites)}` : '';
-            userInfo.innerHTML = `<strong>✅ Connected to Atlassian: ${decodeURIComponent(userName)}${emailText}${sitesText}</strong>`;
-            document.getElementById('chatForm').insertBefore(userInfo, document.getElementById('chatForm').firstChild);
-            
-            // Hide install section since user just completed OAuth
-            document.getElementById('installSection').style.display = 'none';
+            const emailText = atlassianUserEmailFromCookie ? ` (${atlassianUserEmailFromCookie})` : '';
+            userInfo.innerHTML = `<strong>✅ Connected to Atlassian: ${atlassianUserNameFromCookie}${emailText}</strong>`;
+            document.getElementById('atlassianInstall').replaceWith(userInfo);
         }
         
-        document.getElementById('chatForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
+        async function sendMessage() {
             const slackToken = slackTokenFromCookie;
             const message = document.getElementById('message').value;
             const provider = document.getElementById('provider').value;
             const submitBtn = document.getElementById('submitBtn');
             const responseDiv = document.getElementById('response');
             const responseContent = document.getElementById('responseContent');
+            
+            if (!message.trim()) return;
             
             submitBtn.disabled = true;
             submitBtn.textContent = 'Sending...';
@@ -172,6 +157,18 @@
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Send';
+            }
+        }
+
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await sendMessage();
+        });
+        
+        document.getElementById('message').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                await sendMessage();
             }
         });
     </script>

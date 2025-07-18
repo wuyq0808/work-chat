@@ -42,12 +42,11 @@ export class AtlassianOAuthService {
     this.clientSecret = process.env.ATLASSIAN_CLIENT_SECRET;
     this.redirectUri = process.env.ATLASSIAN_REDIRECT_URI;
     this.scopes = [
+      'read:me', // Required for user info
       'read:jira-user',
       'read:jira-work',
-      'write:jira-work',
       'read:confluence-user',
       'read:confluence-content.all',
-      'write:confluence-content',
       'offline_access', // For refresh tokens
     ];
   }
@@ -177,6 +176,43 @@ export class AtlassianOAuthService {
         tokenResponse.access_token
       );
 
+      // Set secure HttpOnly cookies for Atlassian tokens and user info
+      const isProduction = process.env.NODE_ENV === 'production';
+
+      // Cookie helper functions (reused from Slack/Azure implementation)
+      const secureCookieString = (name: string, value: string) =>
+        `${name}=${encodeURIComponent(value)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
+
+      const regularCookieString = (name: string, value: string) =>
+        `${name}=${encodeURIComponent(value)}; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
+
+      // Set Atlassian token as HttpOnly cookie
+      const cookies = [
+        secureCookieString('atlassian_token', tokenResponse.access_token),
+      ];
+
+      // Store refresh token if available
+      if (tokenResponse.refresh_token) {
+        cookies.push(
+          secureCookieString('atlassian_refresh_token', tokenResponse.refresh_token)
+        );
+      }
+
+      // Store user info in regular cookies
+      if (userInfo.name) {
+        cookies.push(
+          regularCookieString('atlassian_user_name', userInfo.name)
+        );
+      }
+      if (userInfo.email) {
+        cookies.push(
+          regularCookieString('atlassian_user_email', userInfo.email)
+        );
+      }
+
+      res.setHeader('Set-Cookie', cookies);
+
+      // Redirect to home page without tokens in URL
       const redirectUrl = new URL(`${process.env.HOME_PAGE_URL}/`);
       const apiKey = process.env.API_KEY;
       if (!apiKey) {
@@ -184,16 +220,6 @@ export class AtlassianOAuthService {
       }
 
       redirectUrl.searchParams.set('apikey', apiKey);
-      redirectUrl.searchParams.set(
-        'atlassian_token',
-        tokenResponse.access_token
-      );
-      redirectUrl.searchParams.set('user_name', userInfo.name || '');
-      redirectUrl.searchParams.set('user_email', userInfo.email || '');
-      redirectUrl.searchParams.set(
-        'atlassian_sites',
-        resources.map(r => r.name).join(', ')
-      );
 
       res.writeHead(302, { Location: redirectUrl.toString() });
       res.end();
