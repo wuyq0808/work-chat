@@ -32,19 +32,12 @@ export function verifyBearerToken(req: Request): string {
 }
 
 export function getSlackToken(req: Request): string {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new AuthError('Authorization header with Bearer token required', 401);
+  // Get from HttpOnly cookie using cookie-parser
+  const cookies = (req as any).cookies || {};
+  
+  if (!cookies.slack_token) {
+    throw new AuthError('Slack token required in cookie', 401);
   }
 
-  const parts = authHeader.split(' ');
-  if (parts.length < 3) {
-    throw new AuthError(
-      'Slack user token required as third part of Authorization header (Bearer api_key slack_token)',
-      400
-    );
-  }
-
-  return parts[2]; // Third part is the slack token
+  return cookies.slack_token;
 }

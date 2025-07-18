@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { SlackOAuthService } from './services/slackOAuthService.js';
@@ -19,6 +20,7 @@ const port = 3000;
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // Initialize OAuth services
 const slackOAuthService = new SlackOAuthService();

@@ -40,10 +40,6 @@
     </div>
     
     <form id="chatForm">
-        <p>
-            <label>Slack Token (or input manually):</label><br>
-            <input type="password" id="slackToken" placeholder="xoxp-your-slack-user-token" size="50" required>
-        </p>
         
         <p>
             <label>AI Provider:</label><br>
@@ -70,13 +66,26 @@
     </div>
 
     <script>
-        // Get API key and optional tokens from URL parameters
+        // Get API key from URL parameters (tokens now come from cookies)
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
-        const slackTokenFromUrl = urlParams.get('slack_token');
         const azureTokenFromUrl = urlParams.get('azure_token');
         const atlassianTokenFromUrl = urlParams.get('atlassian_token');
-        const teamName = urlParams.get('team_name');
+        
+        // Get tokens from cookies (secure approach)
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+            return null;
+        }
+        
+        const slackTokenFromCookie = getCookie('slack_token');
+        const teamNameFromCookie = getCookie('team_name');
+        
+        console.log('Frontend - slackTokenFromCookie:', slackTokenFromCookie ? 'present' : 'missing');
+        console.log('Frontend - teamNameFromCookie:', teamNameFromCookie || 'missing');
+        console.log('Frontend - all cookies:', document.cookie);
         const userName = urlParams.get('user_name');
         const userEmail = urlParams.get('user_email');
         const atlassianSites = urlParams.get('atlassian_sites');
@@ -86,19 +95,16 @@
             throw new Error('No API key provided');
         }
         
-        // Auto-fill Slack token if provided via OAuth
-        if (slackTokenFromUrl) {
-            document.getElementById('slackToken').value = slackTokenFromUrl;
-            
-            // Hide install section since user just completed OAuth
+        // Hide install section if user has completed OAuth
+        if (slackTokenFromCookie) {
             document.getElementById('installSection').style.display = 'none';
         }
         
         // Show team name if available (Slack OAuth)
-        if (teamName) {
+        if (teamNameFromCookie) {
             const teamInfo = document.createElement('div');
             teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
-            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${decodeURIComponent(teamName)}</strong>`;
+            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamNameFromCookie}</strong>`;
             document.getElementById('chatForm').insertBefore(teamInfo, document.getElementById('chatForm').firstChild);
         }
         
@@ -130,7 +136,7 @@
         document.getElementById('chatForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const slackToken = document.getElementById('slackToken').value;
+            const slackToken = slackTokenFromCookie;
             const message = document.getElementById('message').value;
             const provider = document.getElementById('provider').value;
             const submitBtn = document.getElementById('submitBtn');
