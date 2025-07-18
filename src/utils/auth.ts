@@ -42,40 +42,27 @@ export function getSlackTokenFromCookie(req: Request): string {
   return cookies.slack_token;
 }
 
-export function getSlackTokenFromAuthHeader(req: Request): string {
-  // For MCP requests, get Slack token from Authorization header
-  // NOTE: This is a hack - Claude LLM can only pass the Authorization header to MCP servers,
-  // so we embed the Slack token in the auth header format: "Bearer API_KEY SLACK_TOKEN"
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const tokens = authHeader.split(' ');
-    if (tokens.length >= 3) {
-      // Format: ["Bearer", "API_KEY", "SLACK_TOKEN"] - get index 2 (Slack token)
-      return tokens[2];
-    }
-  }
-
-  throw new AuthError(
-    'Slack token required in Authorization header for MCP requests',
-    401
-  );
+export function getAzureTokenFromUrl(req: Request): string | undefined {
+  // Get Azure token from URL query parameter
+  const azureToken = req.query.azure_token as string;
+  return azureToken;
 }
 
-export function getAzureTokenFromAuthHeader(req: Request): string {
-  // For MCP requests, get Azure token from Authorization header
+export function getAccessTokenFromAuthHeader(req: Request): string {
+  // For MCP requests, get access token from Authorization header
   // NOTE: This is a hack - Claude LLM can only pass the Authorization header to MCP servers,
-  // so we embed the Azure token in the auth header format: "Bearer API_KEY AZURE_TOKEN"
+  // so we embed the access token in the auth header format: "Bearer API_KEY ACCESS_TOKEN"
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const tokens = authHeader.split(' ');
     if (tokens.length >= 3) {
-      // Format: ["Bearer", "API_KEY", "AZURE_TOKEN"] - get index 2 (Azure token)
+      // Format: ["Bearer", "API_KEY", "ACCESS_TOKEN"] - get index 2 (access token)
       return tokens[2];
     }
   }
 
   throw new AuthError(
-    'Azure token required in Authorization header for MCP requests',
+    'Access token required in Authorization header for MCP requests',
     401
   );
 }

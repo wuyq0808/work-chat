@@ -11,8 +11,8 @@ import { AzureStreamableMCPServer } from './azure-mcp-server.js';
 import {
   verifyBearerToken,
   getSlackTokenFromCookie,
-  getSlackTokenFromAuthHeader,
-  getAzureTokenFromAuthHeader,
+  getAccessTokenFromAuthHeader,
+  getAzureTokenFromUrl,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAI, type AIProvider } from './services/aiService.js';
@@ -88,10 +88,14 @@ app.post(
 
     // Get Slack user token from cookie
     const slackToken = getSlackTokenFromCookie(req);
+    
+    // Get Azure token from URL query parameter
+    const azureToken = getAzureTokenFromUrl(req);
 
     const response = await callAI({
       input,
       slackToken,
+      azureToken,
       provider: provider as AIProvider,
     });
 
@@ -109,7 +113,7 @@ app.all(
     verifyBearerToken(req);
 
     // Get Slack user token from auth header (MCP format)
-    const slackUserToken = getSlackTokenFromAuthHeader(req);
+    const slackUserToken = getAccessTokenFromAuthHeader(req);
 
     // Create a new Streamable MCP server instance for this connection
     const streamableServer = new SlackStreamableMCPServer();
@@ -144,7 +148,7 @@ app.all(
     verifyBearerToken(req);
 
     // Get Azure access token from auth header (MCP format)
-    const azureAccessToken = getAzureTokenFromAuthHeader(req);
+    const azureAccessToken = getAccessTokenFromAuthHeader(req);
 
     // Create a new Streamable MCP server instance for this connection
     const streamableServer = new AzureStreamableMCPServer();
