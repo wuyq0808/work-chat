@@ -54,7 +54,8 @@ jobs:
             API_KEY=${{ secrets.API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
-            MCP_SERVER_URL=${{ vars.MCP_SERVER_URL }}
+            SLACK_MCP_SERVER_URL=${{ vars.SLACK_MCP_SERVER_URL }}
+            AZURE_MCP_SERVER_URL=${{ vars.AZURE_MCP_SERVER_URL }}
             HOME_PAGE_URL=${{ vars.HOME_PAGE_URL }}
             SLACK_CLIENT_ID=${{ vars.SLACK_CLIENT_ID }}
             SLACK_CLIENT_SECRET=${{ secrets.SLACK_CLIENT_SECRET }}
