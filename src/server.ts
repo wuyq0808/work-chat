@@ -4,6 +4,8 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { SlackOAuthService } from './services/slackOAuthService.js';
+import { AzureOAuthService } from './services/azureOAuthService.js';
+import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
 import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
 import { verifyBearerToken, getSlackToken } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
@@ -20,12 +22,22 @@ const port = process.env.PORT || 5173;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Slack OAuth service
+// Initialize OAuth services
 const slackOAuthService = new SlackOAuthService();
+const azureOAuthService = new AzureOAuthService();
+const atlassianOAuthService = new AtlassianOAuthService();
 
 // Slack OAuth routes
 app.get('/slack/install', slackOAuthService.handleInstall);
 app.get('/slack/oauth_redirect', slackOAuthService.handleCallback);
+
+// Azure OAuth routes
+app.get('/azure/install', azureOAuthService.handleInstall);
+app.get('/azure/oauth_redirect', azureOAuthService.handleCallback);
+
+// Atlassian OAuth routes
+app.get('/atlassian/install', atlassianOAuthService.handleInstall);
+app.get('/atlassian/oauth_redirect', atlassianOAuthService.handleCallback);
 
 // Homepage route with basic URL authentication
 app.get('/', (req, res) => {

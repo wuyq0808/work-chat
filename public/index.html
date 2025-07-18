@@ -8,13 +8,34 @@
     <p>Ask questions about your Slack workspace</p>
     
     <div id="installSection">
-        <h3>Install Slack App</h3>
-        <p>To use advanced features with OAuth authentication, install the Slack app:</p>
-        <a href="/slack/install">
-            <img alt="Add to Slack" height="40" width="139" 
-                 src="https://platform.slack-edge.com/img/add_to_slack.png" 
-                 srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x">
-        </a>
+        <h3>Connect with OAuth</h3>
+        <p>To use advanced features with OAuth authentication, connect your accounts:</p>
+        
+        <div style="margin-bottom: 15px;">
+            <h4>Slack Integration</h4>
+            <a href="/slack/install">
+                <img alt="Add to Slack" height="40" width="139" 
+                     src="https://platform.slack-edge.com/img/add_to_slack.png" 
+                     srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x">
+            </a>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4>Microsoft Azure Integration</h4>
+            <a href="/azure/install">
+                <img alt="Sign in with Microsoft" height="40" width="215" 
+                     src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNzhkNCIvPgo8cGF0aCBkPSJNMTMuNSA4LjVoOXY5aC05VjguNVptMCAxMC41aDl2OWgtOVYxOVptMTAuNS0xMC41aDl2OWgtOVY4LjVabTAgMTAuNWg5djloLTlWMTlaIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSI0NSIgeT0iMjQiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5TaWduIGluIHdpdGggTWljcm9zb2Z0PC90ZXh0Pgo8L3N2Zz4K">
+            </a>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4>Atlassian Integration (Jira & Confluence)</h4>
+            <a href="/atlassian/install">
+                <img alt="Connect with Atlassian" height="40" width="215" 
+                     src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNTJjYyIvPgo8cGF0aCBkPSJNMTAuNSA4LjVoNXY1aC01VjguNVptNiAwaDV2NWgtNVY4LjVabTAgNmg1djVoLTVWMTQuNVptNiAwaDV2NWgtNVYxNC41WiIgZmlsbD0id2hpdGUiLz4KPHRleHQgeD0iMzAiIHk9IjI0IiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5Db25uZWN0IHdpdGggQXRsYXNzaWFuPC90ZXh0Pgo8L3N2Zz4K">
+            </a>
+        </div>
+        
         <p><strong>Note:</strong> You can still use the manual token approach below for testing.</p>
     </div>
     
@@ -49,11 +70,16 @@
     </div>
 
     <script>
-        // Get API key and optional Slack token from URL parameters
+        // Get API key and optional tokens from URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
         const slackTokenFromUrl = urlParams.get('slack_token');
+        const azureTokenFromUrl = urlParams.get('azure_token');
+        const atlassianTokenFromUrl = urlParams.get('atlassian_token');
         const teamName = urlParams.get('team_name');
+        const userName = urlParams.get('user_name');
+        const userEmail = urlParams.get('user_email');
+        const atlassianSites = urlParams.get('atlassian_sites');
         
         if (!apiKey) {
             document.body.innerHTML = '<h1>Access Denied</h1><p>No API key provided</p>';
@@ -68,12 +94,37 @@
             document.getElementById('installSection').style.display = 'none';
         }
         
-        // Show team name if available
+        // Show team name if available (Slack OAuth)
         if (teamName) {
             const teamInfo = document.createElement('div');
             teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
             teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${decodeURIComponent(teamName)}</strong>`;
             document.getElementById('chatForm').insertBefore(teamInfo, document.getElementById('chatForm').firstChild);
+        }
+        
+        // Show user info if available (Azure OAuth)
+        if (azureTokenFromUrl && userName) {
+            const userInfo = document.createElement('div');
+            userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f0ff; border-radius: 5px; color: #0078d4;';
+            const emailText = userEmail ? ` (${decodeURIComponent(userEmail)})` : '';
+            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${decodeURIComponent(userName)}${emailText}</strong>`;
+            document.getElementById('chatForm').insertBefore(userInfo, document.getElementById('chatForm').firstChild);
+            
+            // Hide install section since user just completed OAuth
+            document.getElementById('installSection').style.display = 'none';
+        }
+        
+        // Show user info if available (Atlassian OAuth)
+        if (atlassianTokenFromUrl && userName) {
+            const userInfo = document.createElement('div');
+            userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f4ff; border-radius: 5px; color: #0052cc;';
+            const emailText = userEmail ? ` (${decodeURIComponent(userEmail)})` : '';
+            const sitesText = atlassianSites ? ` - Sites: ${decodeURIComponent(atlassianSites)}` : '';
+            userInfo.innerHTML = `<strong>✅ Connected to Atlassian: ${decodeURIComponent(userName)}${emailText}${sitesText}</strong>`;
+            document.getElementById('chatForm').insertBefore(userInfo, document.getElementById('chatForm').firstChild);
+            
+            // Hide install section since user just completed OAuth
+            document.getElementById('installSection').style.display = 'none';
         }
         
         document.getElementById('chatForm').addEventListener('submit', async (e) => {
