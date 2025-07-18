@@ -42,11 +42,17 @@ export function getSlackTokenFromCookie(req: Request): string {
   return cookies.slack_token;
 }
 
-export function getAzureTokenFromUrl(req: Request): string | undefined {
-  // Get Azure token from URL query parameter
-  const azureToken = req.query.azure_token as string;
-  return azureToken;
+export function getAzureTokenFromCookie(req: Request): string {
+  // Get from HttpOnly cookie using cookie-parser
+  const cookies = (req as any).cookies || {};
+
+  if (!cookies.azure_token) {
+    throw new AuthError('Azure token required in cookie', 401);
+  }
+
+  return cookies.azure_token;
 }
+
 
 export function getAccessTokenFromAuthHeader(req: Request): string {
   // For MCP requests, get access token from Authorization header

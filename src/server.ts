@@ -12,7 +12,7 @@ import {
   verifyBearerToken,
   getSlackTokenFromCookie,
   getAccessTokenFromAuthHeader,
-  getAzureTokenFromUrl,
+  getAzureTokenFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAI, type AIProvider } from './services/aiService.js';
@@ -86,11 +86,21 @@ app.post(
       });
     }
 
-    // Get Slack user token from cookie
-    const slackToken = getSlackTokenFromCookie(req);
+    // Get tokens from cookies (optional - AI will work with at least one token)
+    let slackToken: string | undefined;
+    let azureToken: string | undefined;
     
-    // Get Azure token from URL query parameter
-    const azureToken = getAzureTokenFromUrl(req);
+    try {
+      slackToken = getSlackTokenFromCookie(req);
+    } catch (error) {
+      // Slack token not available - that's fine if Azure token is available
+    }
+    
+    try {
+      azureToken = getAzureTokenFromCookie(req);
+    } catch (error) {
+      // Azure token not available - that's fine if Slack token is available
+    }
 
     const response = await callAI({
       input,

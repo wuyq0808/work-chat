@@ -144,6 +144,46 @@ export class AzureOAuthService {
       const tokenResponse = await this.exchangeCodeForToken(code);
       const userInfo = await this.getUserInfo(tokenResponse.access_token);
 
+      // Set secure HttpOnly cookies for Azure tokens and user info
+      const isProduction = process.env.NODE_ENV === 'production';
+
+      // Cookie helper functions (reused from Slack implementation)
+      const secureCookieString = (name: string, value: string) =>
+        `${name}=${encodeURIComponent(value)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
+
+      const regularCookieString = (name: string, value: string) =>
+        `${name}=${encodeURIComponent(value)}; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
+
+      // Set Azure token as HttpOnly cookie
+      const cookies = [
+        secureCookieString('azure_token', tokenResponse.access_token),
+      ];
+
+      // Store refresh token if available
+      if (tokenResponse.refresh_token) {
+        cookies.push(
+          secureCookieString('azure_refresh_token', tokenResponse.refresh_token)
+        );
+      }
+
+      // Store user info in regular cookies
+      if (userInfo.displayName) {
+        cookies.push(
+          regularCookieString('azure_user_name', userInfo.displayName)
+        );
+      }
+      if (userInfo.mail || userInfo.userPrincipalName) {
+        cookies.push(
+          regularCookieString(
+            'azure_user_email',
+            userInfo.mail || userInfo.userPrincipalName
+          )
+        );
+      }
+
+      res.setHeader('Set-Cookie', cookies);
+
+      // Redirect to home page without tokens in URL
       const redirectUrl = new URL(`${process.env.HOME_PAGE_URL}/`);
       const apiKey = process.env.API_KEY;
       if (!apiKey) {
@@ -151,12 +191,6 @@ export class AzureOAuthService {
       }
 
       redirectUrl.searchParams.set('apikey', apiKey);
-      redirectUrl.searchParams.set('azure_token', tokenResponse.access_token);
-      redirectUrl.searchParams.set('user_name', userInfo.displayName || '');
-      redirectUrl.searchParams.set(
-        'user_email',
-        userInfo.mail || userInfo.userPrincipalName || ''
-      );
 
       res.writeHead(302, { Location: redirectUrl.toString() });
       res.end();

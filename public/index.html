@@ -11,7 +11,7 @@
         <h3>Connect with OAuth</h3>
         <p>To use advanced features with OAuth authentication, connect your accounts:</p>
         
-        <div style="margin-bottom: 15px;">
+        <div id="slackInstall" style="margin-bottom: 15px;">
             <h4>Slack Integration</h4>
             <a href="/slack/install">
                 <img alt="Add to Slack" height="40" width="139" 
@@ -20,7 +20,7 @@
             </a>
         </div>
         
-        <div style="margin-bottom: 15px;">
+        <div id="azureInstall" style="margin-bottom: 15px;">
             <h4>Microsoft Azure Integration</h4>
             <a href="/azure/install">
                 <img alt="Sign in with Microsoft" height="40" width="215" 
@@ -68,7 +68,6 @@
         // Get API key from URL parameters (tokens now come from cookies)
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
-        const azureTokenFromUrl = urlParams.get('azure_token');
         const atlassianTokenFromUrl = urlParams.get('atlassian_token');
         
         // Get tokens from cookies (secure approach)
@@ -81,9 +80,13 @@
         
         const slackTokenFromCookie = getCookie('slack_token');
         const teamNameFromCookie = getCookie('team_name');
+        const azureTokenFromCookie = getCookie('azure_token');
+        const azureUserNameFromCookie = getCookie('azure_user_name');
+        const azureUserEmailFromCookie = getCookie('azure_user_email');
         
         console.log('Frontend - slackTokenFromCookie:', slackTokenFromCookie ? 'present' : 'missing');
         console.log('Frontend - teamNameFromCookie:', teamNameFromCookie || 'missing');
+        console.log('Frontend - azureTokenFromCookie:', azureTokenFromCookie ? 'present' : 'missing');
         console.log('Frontend - all cookies:', document.cookie);
         const userName = urlParams.get('user_name');
         const userEmail = urlParams.get('user_email');
@@ -94,29 +97,25 @@
             throw new Error('No API key provided');
         }
         
-        // Hide install section if user has completed OAuth
+        // Handle Slack connection status
         if (slackTokenFromCookie) {
-            document.getElementById('installSection').style.display = 'none';
-        }
-        
-        // Show team name if available (Slack OAuth)
-        if (teamNameFromCookie) {
+            // Replace install button with connected banner
             const teamInfo = document.createElement('div');
             teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
-            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamNameFromCookie}</strong>`;
-            document.getElementById('chatForm').insertBefore(teamInfo, document.getElementById('chatForm').firstChild);
+            const teamName = teamNameFromCookie || 'Unknown Workspace';
+            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamName}</strong>`;
+            document.getElementById('slackInstall').replaceWith(teamInfo);
         }
         
-        // Show user info if available (Azure OAuth)
-        if (azureTokenFromUrl && userName) {
+        // Handle Azure connection status
+        if (azureTokenFromCookie) {
+            // Replace install button with connected banner
             const userInfo = document.createElement('div');
             userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f0ff; border-radius: 5px; color: #0078d4;';
-            const emailText = userEmail ? ` (${decodeURIComponent(userEmail)})` : '';
-            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${decodeURIComponent(userName)}${emailText}</strong>`;
-            document.getElementById('chatForm').insertBefore(userInfo, document.getElementById('chatForm').firstChild);
-            
-            // Hide install section since user just completed OAuth
-            document.getElementById('installSection').style.display = 'none';
+            const userName = azureUserNameFromCookie || 'Azure User';
+            const emailText = azureUserEmailFromCookie ? ` (${azureUserEmailFromCookie})` : '';
+            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${userName}${emailText}</strong>`;
+            document.getElementById('azureInstall').replaceWith(userInfo);
         }
         
         // Show user info if available (Atlassian OAuth)
@@ -148,17 +147,12 @@
             responseContent.textContent = 'Loading...';
             
             try {
-                // Build URL with Azure token parameter if available
-                let apiUrl = '/api/ai/generate';
-                if (azureTokenFromUrl) {
-                    apiUrl += `?azure_token=${encodeURIComponent(azureTokenFromUrl)}`;
-                }
-                
-                const response = await fetch(apiUrl, {
+                // All tokens are now handled via cookies on the server side
+                const response = await fetch('/api/ai/generate', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey} ${slackToken}`
+                        'Authorization': `Bearer ${apiKey}`
                     },
                     body: JSON.stringify({
                         input: message,
