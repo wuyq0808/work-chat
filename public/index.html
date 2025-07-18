@@ -148,7 +148,13 @@
             responseContent.textContent = 'Loading...';
             
             try {
-                const response = await fetch('/api/ai/generate', {
+                // Build URL with Azure token parameter if available
+                let apiUrl = '/api/ai/generate';
+                if (azureTokenFromUrl) {
+                    apiUrl += `?azure_token=${encodeURIComponent(azureTokenFromUrl)}`;
+                }
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
