@@ -7,7 +7,11 @@ import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
 import { SlackStreamableMCPServer } from './mcp-streamable-server.js';
-import { verifyBearerToken, getSlackToken } from './utils/auth.js';
+import {
+  verifyBearerToken,
+  getSlackTokenFromCookie,
+  getSlackTokenFromAuthHeader,
+} from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAI, type AIProvider } from './services/aiService.js';
 // Simple HTTP MCP server - no SDK transport needed
@@ -80,8 +84,8 @@ app.post(
       });
     }
 
-    // Get Slack user token from header
-    const slackToken = getSlackToken(req);
+    // Get Slack user token from cookie
+    const slackToken = getSlackTokenFromCookie(req);
 
     const response = await callAI({
       input,
@@ -102,8 +106,8 @@ app.all(
     // Bearer token authentication check
     verifyBearerToken(req);
 
-    // Get Slack user token from header or URL parameter
-    const slackUserToken = getSlackToken(req);
+    // Get Slack user token from auth header (MCP format)
+    const slackUserToken = getSlackTokenFromAuthHeader(req);
 
     // Create a new Streamable MCP server instance for this connection
     const streamableServer = new SlackStreamableMCPServer();

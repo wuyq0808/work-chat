@@ -31,13 +31,33 @@ export function verifyBearerToken(req: Request): string {
   return token;
 }
 
-export function getSlackToken(req: Request): string {
+export function getSlackTokenFromCookie(req: Request): string {
   // Get from HttpOnly cookie using cookie-parser
   const cookies = (req as any).cookies || {};
-  
+
   if (!cookies.slack_token) {
     throw new AuthError('Slack token required in cookie', 401);
   }
 
   return cookies.slack_token;
+}
+
+export function getSlackTokenFromAuthHeader(req: Request): string {
+  // For MCP requests, get Slack token from Authorization header
+  // NOTE: This is a hack - Claude LLM can only pass the Authorization header to MCP servers,
+  // so we embed the Slack token in the auth header format: "Bearer API_KEY SLACK_TOKEN"
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const tokenPart = authHeader.split(' ')[1];
+    const tokens = tokenPart.split(' ');
+    if (tokens.length === 2) {
+      // Format: "API_KEY SLACK_TOKEN"
+      return tokens[1];
+    }
+  }
+
+  throw new AuthError(
+    'Slack token required in Authorization header for MCP requests',
+    401
+  );
 }
