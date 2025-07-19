@@ -172,9 +172,7 @@ export class AtlassianOAuthService {
     try {
       const tokenResponse = await this.exchangeCodeForToken(code);
       const userInfo = await this.getUserInfo(tokenResponse.access_token);
-      const resources = await this.getAccessibleResources(
-        tokenResponse.access_token
-      );
+      await this.getAccessibleResources(tokenResponse.access_token);
 
       // Set secure HttpOnly cookies for Atlassian tokens and user info
       const isProduction = process.env.NODE_ENV === 'production';
@@ -194,15 +192,16 @@ export class AtlassianOAuthService {
       // Store refresh token if available
       if (tokenResponse.refresh_token) {
         cookies.push(
-          secureCookieString('atlassian_refresh_token', tokenResponse.refresh_token)
+          secureCookieString(
+            'atlassian_refresh_token',
+            tokenResponse.refresh_token
+          )
         );
       }
 
       // Store user info in regular cookies
       if (userInfo.name) {
-        cookies.push(
-          regularCookieString('atlassian_user_name', userInfo.name)
-        );
+        cookies.push(regularCookieString('atlassian_user_name', userInfo.name));
       }
       if (userInfo.email) {
         cookies.push(

@@ -7,6 +7,7 @@ export interface AIRequest {
   input: string;
   slackToken?: string;
   azureToken?: string;
+  atlassianToken?: string;
   provider?: AIProvider;
 }
 
@@ -36,7 +37,9 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
     // Add Slack MCP if token provided
     if (request.slackToken) {
       if (!process.env.SLACK_MCP_SERVER_URL) {
-        throw new Error('SLACK_MCP_SERVER_URL environment variable is required');
+        throw new Error(
+          'SLACK_MCP_SERVER_URL environment variable is required'
+        );
       }
       tools.push({
         type: 'mcp' as const,
@@ -52,7 +55,9 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
     // Add Azure MCP if token provided
     if (request.azureToken) {
       if (!process.env.AZURE_MCP_SERVER_URL) {
-        throw new Error('AZURE_MCP_SERVER_URL environment variable is required');
+        throw new Error(
+          'AZURE_MCP_SERVER_URL environment variable is required'
+        );
       }
       tools.push({
         type: 'mcp' as const,
@@ -60,6 +65,24 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
         server_url: process.env.AZURE_MCP_SERVER_URL,
         headers: {
           Authorization: `Bearer ${process.env.API_KEY} ${request.azureToken}`,
+        },
+        require_approval: 'never' as const,
+      });
+    }
+
+    // Add Atlassian MCP if token provided
+    if (request.atlassianToken) {
+      if (!process.env.ATLASSIAN_MCP_SERVER_URL) {
+        throw new Error(
+          'ATLASSIAN_MCP_SERVER_URL environment variable is required'
+        );
+      }
+      tools.push({
+        type: 'mcp' as const,
+        server_label: 'atlassian-mcp',
+        server_url: process.env.ATLASSIAN_MCP_SERVER_URL,
+        headers: {
+          Authorization: `Bearer ${process.env.API_KEY} ${request.atlassianToken}`,
         },
         require_approval: 'never' as const,
       });
@@ -95,7 +118,9 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
     // Add Slack MCP if token provided
     if (request.slackToken) {
       if (!process.env.SLACK_MCP_SERVER_URL) {
-        throw new Error('SLACK_MCP_SERVER_URL environment variable is required');
+        throw new Error(
+          'SLACK_MCP_SERVER_URL environment variable is required'
+        );
       }
       mcpServers.push({
         type: 'url',
@@ -108,13 +133,30 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
     // Add Azure MCP if token provided
     if (request.azureToken) {
       if (!process.env.AZURE_MCP_SERVER_URL) {
-        throw new Error('AZURE_MCP_SERVER_URL environment variable is required');
+        throw new Error(
+          'AZURE_MCP_SERVER_URL environment variable is required'
+        );
       }
       mcpServers.push({
         type: 'url',
         url: process.env.AZURE_MCP_SERVER_URL,
         name: 'azure-mcp',
         authorization_token: `${process.env.API_KEY} ${request.azureToken}`,
+      });
+    }
+
+    // Add Atlassian MCP if token provided
+    if (request.atlassianToken) {
+      if (!process.env.ATLASSIAN_MCP_SERVER_URL) {
+        throw new Error(
+          'ATLASSIAN_MCP_SERVER_URL environment variable is required'
+        );
+      }
+      mcpServers.push({
+        type: 'url',
+        url: process.env.ATLASSIAN_MCP_SERVER_URL,
+        name: 'atlassian-mcp',
+        authorization_token: `${process.env.API_KEY} ${request.atlassianToken}`,
       });
     }
 
@@ -151,12 +193,12 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
   const provider = request.provider || 'openai';
 
   // Validate that at least one token is provided
-  if (!request.slackToken && !request.azureToken) {
+  if (!request.slackToken && !request.azureToken && !request.atlassianToken) {
     return {
       success: false,
       output: '',
       model: 'unknown',
-      error: 'At least one token (Slack or Azure) must be provided',
+      error: 'At least one token (Slack, Azure, or Atlassian) must be provided',
     };
   }
 

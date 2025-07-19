@@ -64,7 +64,6 @@ export function getAtlassianTokenFromCookie(req: Request): string {
   return cookies.atlassian_token;
 }
 
-
 export function getAccessTokenFromAuthHeader(req: Request): string {
   // For MCP requests, get access token from Authorization header
   // NOTE: This is a hack - Claude LLM can only pass the Authorization header to MCP servers,

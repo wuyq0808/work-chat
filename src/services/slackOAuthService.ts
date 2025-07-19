@@ -79,7 +79,6 @@ export class SlackOAuthService {
         const userToken = installation.user?.token;
         const teamName = installation.team?.name;
 
-
         if (userToken) {
           // Set secure HttpOnly cookies for token and team info
           const isProduction = process.env.NODE_ENV === 'production';
@@ -87,7 +86,7 @@ export class SlackOAuthService {
           // Set cookies manually since res.cookie doesn't exist on ServerResponse
           const secureCookieString = (name: string, value: string) =>
             `${name}=${encodeURIComponent(value)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
-          
+
           const regularCookieString = (name: string, value: string) =>
             `${name}=${encodeURIComponent(value)}; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
 

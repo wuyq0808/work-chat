@@ -8,11 +8,13 @@ import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
 import { SlackStreamableMCPServer } from './slack-mcp-server.js';
 import { AzureStreamableMCPServer } from './azure-mcp-server.js';
+import { AtlassianStreamableMCPServer } from './atlassian-mcp-server.js';
 import {
   verifyBearerToken,
   getSlackTokenFromCookie,
   getAccessTokenFromAuthHeader,
   getAzureTokenFromCookie,
+  getAtlassianTokenFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAI, type AIProvider } from './services/aiService.js';
@@ -89,23 +91,31 @@ app.post(
     // Get tokens from cookies (optional - AI will work with at least one token)
     let slackToken: string | undefined;
     let azureToken: string | undefined;
-    
+    let atlassianToken: string | undefined;
+
     try {
       slackToken = getSlackTokenFromCookie(req);
-    } catch (error) {
-      // Slack token not available - that's fine if Azure token is available
+    } catch {
+      // Slack token not available - that's fine if other tokens are available
     }
-    
+
     try {
       azureToken = getAzureTokenFromCookie(req);
-    } catch (error) {
-      // Azure token not available - that's fine if Slack token is available
+    } catch {
+      // Azure token not available - that's fine if other tokens are available
+    }
+
+    try {
+      atlassianToken = getAtlassianTokenFromCookie(req);
+    } catch {
+      // Atlassian token not available - that's fine if other tokens are available
     }
 
     const response = await callAI({
       input,
       slackToken,
       azureToken,
+      atlassianToken,
       provider: provider as AIProvider,
     });
 
@@ -184,6 +194,40 @@ app.all(
   })
 );
 
+// Atlassian MCP Streamable HTTP endpoint - handles both GET and POST
+app.all(
+  '/api/atlassian-mcp',
+  asyncHandler(async (req, res) => {
+    // Bearer token authentication check
+    verifyBearerToken(req);
+
+    // Get Atlassian access token from auth header (MCP format)
+    const atlassianAccessToken = getAccessTokenFromAuthHeader(req);
+
+    // Create a new Streamable MCP server instance for this connection
+    const streamableServer = new AtlassianStreamableMCPServer();
+
+    // Initialize Atlassian client
+    streamableServer.initializeAtlassianClient({
+      accessToken: atlassianAccessToken,
+    });
+
+    // Create MCP server and transport
+    const server = streamableServer.createServer();
+    const transport = streamableServer.createTransport();
+
+    // Clean up on request close
+    res.on('close', () => {
+      transport.close();
+      server.close();
+    });
+
+    // Connect server to transport and handle the request
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  })
+);
+
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
@@ -194,5 +238,8 @@ app.listen(port, () => {
   );
   console.log(
     `Azure MCP Streamable HTTP endpoint: http://localhost:${port}/api/azure-mcp`
+  );
+  console.log(
+    `Atlassian MCP Streamable HTTP endpoint: http://localhost:${port}/api/atlassian-mcp`
   );
 });

@@ -168,7 +168,6 @@ export class AzureStreamableMCPServer {
       }
     );
 
-
     return server;
   }
 
@@ -177,10 +176,10 @@ export class AzureStreamableMCPServer {
     return new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // Stateless mode for OpenAI compatibility
       enableJsonResponse: true, // Enable JSON responses for OpenAI compatibility
-      onsessioninitialized: (sessionId: string) => {
+      onsessioninitialized: (_sessionId: string) => {
         // Session initialized
       },
-      onsessionclosed: (sessionId: string) => {
+      onsessionclosed: (_sessionId: string) => {
         // Session closed
       },
     });
