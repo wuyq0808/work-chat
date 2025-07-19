@@ -54,6 +54,7 @@ jobs:
             API_KEY=${{ secrets.API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             SLACK_MCP_SERVER_URL=${{ vars.SLACK_MCP_SERVER_URL }}
             AZURE_MCP_SERVER_URL=${{ vars.AZURE_MCP_SERVER_URL }}
             ATLASSIAN_MCP_SERVER_URL=${{ vars.ATLASSIAN_MCP_SERVER_URL }}

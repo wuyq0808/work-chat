@@ -3,7 +3,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AzureMCPClient } from '../../lib/azure-client.js';
+import { AzureMCPClient } from './azure-client.js';
 import { AzureToolHandlers } from './azure-tools.js';
 
 export class AzureMCPStdioServer {

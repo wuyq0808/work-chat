@@ -1,4 +1,4 @@
-import { AzureMCPClient } from '../../lib/azure-client.js';
+import { AzureMCPClient } from './azure-client.js';
 
 export interface ToolDefinition {
   name: string;

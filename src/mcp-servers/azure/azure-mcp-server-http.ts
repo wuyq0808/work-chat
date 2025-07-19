@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { AzureMCPClient, type AzureConfig } from '../../lib/azure-client.js';
+import { AzureMCPClient, type AzureConfig } from './azure-client.js';
 import { AzureToolHandlers } from './azure-tools.js';
 
 export class AzureStreamableMCPServer {
