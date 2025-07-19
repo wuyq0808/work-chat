@@ -4,7 +4,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import {
   AtlassianMCPClient,
   type AtlassianConfig,
-} from './lib/atlassian-client.js';
+} from './atlassian-client.js';
 
 export class AtlassianStreamableMCPServer {
   private atlassianClient: AtlassianMCPClient | null = null;

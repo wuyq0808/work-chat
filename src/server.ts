@@ -6,9 +6,9 @@ import { fileURLToPath } from 'url';
 import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
-import { SlackStreamableMCPServer } from './slack-mcp-server.js';
+import { SlackStreamableMCPServer } from './mcp-servers/slack/slack-mcp-server-http.js';
 import { AzureStreamableMCPServer } from './mcp-servers/azure/azure-mcp-server-http.js';
-import { AtlassianStreamableMCPServer } from './atlassian-mcp-server.js';
+import { AtlassianStreamableMCPServer } from './mcp-servers/atlassian/atlassian-mcp-server-http.js';
 import {
   verifyBearerToken,
   getSlackTokenFromCookie,
