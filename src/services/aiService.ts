@@ -1,7 +1,11 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI, mcpToTool } from '@google/genai';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { AzureMCPStdioServer } from '../mcp-servers/azure/azure-mcp-server-stdio.js';
 
-export type AIProvider = 'openai' | 'claude';
+export type AIProvider = 'openai' | 'claude' | 'gemini';
 
 export interface AIRequest {
   input: string;
@@ -9,14 +13,6 @@ export interface AIRequest {
   azureToken?: string;
   atlassianToken?: string;
   provider?: AIProvider;
-}
-
-export interface AIResponse {
-  success: boolean;
-  output: string;
-  model: string;
-  usage?: any;
-  error?: string;
 }
 
 const openai = new OpenAI({
@@ -30,7 +26,9 @@ const anthropic = new Anthropic({
   },
 });
 
-export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
+const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+export async function callOpenAI(request: AIRequest): Promise<string> {
   try {
     const tools = [];
 
@@ -94,24 +92,13 @@ export async function callOpenAI(request: AIRequest): Promise<AIResponse> {
       tools,
     });
 
-    return {
-      success: true,
-      output: response.output_text || 'No response generated',
-      model: 'gpt-4o-mini',
-      usage: response.usage,
-    };
+    return response.output_text || 'No response generated';
   } catch (error) {
-    return {
-      success: false,
-      output: '',
-      model: 'gpt-4o-mini',
-      error:
-        error instanceof Error ? error.message : 'Failed to generate response',
-    };
+    return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
   }
 }
 
-export async function callClaude(request: AIRequest): Promise<AIResponse> {
+export async function callClaude(request: AIRequest): Promise<string> {
   try {
     const mcpServers = [];
 
@@ -172,34 +159,111 @@ export async function callClaude(request: AIRequest): Promise<AIResponse> {
       .map(block => block.text)
       .join('\n');
 
-    return {
-      success: true,
-      output: output || 'No response generated',
-      model: 'claude-3-5-sonnet-20241022',
-      usage: response.usage,
-    };
+    return output || 'No response generated';
   } catch (error) {
-    return {
-      success: false,
-      output: '',
-      model: 'claude-3-5-sonnet-20241022',
-      error:
-        error instanceof Error ? error.message : 'Failed to generate response',
-    };
+    return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
   }
 }
 
-export async function callAI(request: AIRequest): Promise<AIResponse> {
+export async function callGemini(request: AIRequest): Promise<string> {
+  try {
+    const tools = [];
+
+    // Set up Azure MCP client if token provided
+    if (request.azureToken) {
+      try {
+        // Create Azure MCP server instance in-memory
+        const azureServer = new AzureMCPStdioServer(request.azureToken);
+
+        // Create linked in-memory transports
+        const [clientTransport, serverTransport] =
+          InMemoryTransport.createLinkedPair();
+
+        // Connect server to its transport
+        await azureServer.getServer().connect(serverTransport);
+
+        // Create and connect client
+        const azureClient = new Client(
+          {
+            name: 'gemini-azure-client',
+            version: '1.0.0',
+          },
+          {
+            capabilities: {},
+          }
+        );
+
+        await azureClient.connect(clientTransport);
+        tools.push(mcpToTool(azureClient));
+      } catch (error) {
+        console.error('Failed to connect to Azure MCP server:', error);
+        // Continue without Azure tools
+      }
+    }
+
+    // TODO: Add Slack and Atlassian MCP clients when implemented
+    if (request.slackToken) {
+      // Slack stdio MCP server not yet implemented
+      console.warn('Slack stdio MCP server not yet implemented');
+    }
+
+    if (request.atlassianToken) {
+      // Atlassian stdio MCP server not yet implemented
+      console.warn('Atlassian stdio MCP server not yet implemented');
+    }
+
+    const config: any = {
+      maxOutputTokens: 1024,
+      temperature: 0.7,
+    };
+
+    // Add tools to config if available
+    if (tools.length > 0) {
+      config.tools = tools;
+    }
+
+    const response = await gemini.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: request.input,
+      config,
+    });
+
+    // Handle multipart responses from Gemini (text + tool calls)
+    let output = '';
+    if (
+      response.candidates &&
+      response.candidates[0] &&
+      response.candidates[0].content
+    ) {
+      const parts = response.candidates[0].content.parts || [];
+      for (const part of parts) {
+        if (part.text) {
+          output += part.text;
+        } else if (part.functionCall) {
+          // Tool calls are handled automatically by the MCP integration
+          // Just acknowledge that tools were used
+          output += `[Used tool: ${part.functionCall.name}] `;
+        }
+      }
+    }
+
+    // Fallback to response.text if candidates structure is not available
+    if (!output) {
+      output = response.text || '';
+    }
+
+    return output || 'No response generated';
+  } catch (error) {
+    return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
+  }
+}
+
+export async function callAI(request: AIRequest): Promise<string> {
   const provider = request.provider || 'openai';
 
   // Validate that at least one token is provided
   if (!request.slackToken && !request.azureToken && !request.atlassianToken) {
-    return {
-      success: false,
-      output: '',
-      model: 'unknown',
-      error: 'At least one token (Slack, Azure, or Atlassian) must be provided',
-    };
+    return 'Error: At least one token (Slack, Azure, or Atlassian) must be provided';
   }
 
   switch (provider) {
@@ -207,12 +271,9 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
       return callOpenAI(request);
     case 'claude':
       return callClaude(request);
+    case 'gemini':
+      return callGemini(request);
     default:
-      return {
-        success: false,
-        output: '',
-        model: 'unknown',
-        error: `Unsupported AI provider: ${provider}`,
-      };
+      return `Error: Unsupported AI provider: ${provider}`;
   }
 }

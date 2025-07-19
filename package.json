@@ -10,10 +10,12 @@
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "azure-mcp": "node dist/azure-mcp-stdio-server.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
+    "@google/genai": "^1.10.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.15.1",
     "@slack/oauth": "^3.0.3",

@@ -7,7 +7,7 @@ import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
 import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
 import { SlackStreamableMCPServer } from './slack-mcp-server.js';
-import { AzureStreamableMCPServer } from './azure-mcp-server.js';
+import { AzureStreamableMCPServer } from './mcp-servers/azure/azure-mcp-server-http.js';
 import { AtlassianStreamableMCPServer } from './atlassian-mcp-server.js';
 import {
   verifyBearerToken,
@@ -111,7 +111,7 @@ app.post(
       // Atlassian token not available - that's fine if other tokens are available
     }
 
-    const response = await callAI({
+    const output = await callAI({
       input,
       slackToken,
       azureToken,
@@ -119,7 +119,14 @@ app.post(
       provider: provider as AIProvider,
     });
 
-    res.json(response);
+    // Check if response starts with "Error:" to determine success
+    const isError = output.startsWith('Error:');
+
+    res.json({
+      success: !isError,
+      output: output,
+      error: isError ? output : undefined,
+    });
   })
 );
 
