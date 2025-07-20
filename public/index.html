@@ -30,6 +30,13 @@
         </span>
     </div>
     
+    <div id="conversationSection" style="margin-bottom: 20px;">
+        <p>
+            <button type="button" id="newConversationBtn">🔄 New Conversation</button>
+            <span id="conversationStatus" style="margin-left: 10px; color: #666;"></span>
+        </p>
+    </div>
+
     <form id="chatForm">
         
         <p>
@@ -43,13 +50,7 @@
         
         <p>
             <label>Message:</label><br>
-            <textarea id="message" rows="4" cols="50" placeholder="1. list 3 of my latest messages from slack 
-2. list 3 latest emails from azure 
-3. list 3 latest issues from jira Project: BD" required>1. list 3 of my latest messages from slack 
-2. list 3 latest emails from azure 
-3. list 3 latest issues from jira Project: BD
-Display them.
-</textarea>
+            <textarea id="message" rows="4" cols="50" placeholder="find something important recently" required>find something important recently</textarea>
         </p>
         
         <p>
@@ -67,6 +68,19 @@ Display them.
         // Get API key from URL parameters (tokens now come from cookies)
         const urlParams = new URLSearchParams(window.location.search);
         const apiKey = urlParams.get('apikey');
+        
+        // Conversation management
+        let currentConversationId = null;
+        
+        function generateConversationId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+        
+        function startNewConversation() {
+            currentConversationId = generateConversationId();
+            document.getElementById('conversationStatus').textContent = `Conversation: ${currentConversationId}`;
+            console.log('Started new conversation:', currentConversationId);
+        }
         
         // Get tokens from cookies (secure approach)
         function getCookie(name) {
@@ -143,7 +157,8 @@ Display them.
                     },
                     body: JSON.stringify({
                         input: message,
-                        provider: provider
+                        provider: provider,
+                        conversationId: currentConversationId
                     })
                 });
                 
@@ -173,6 +188,14 @@ Display them.
                 await sendMessage();
             }
         });
+        
+        // New conversation button
+        document.getElementById('newConversationBtn').addEventListener('click', () => {
+            startNewConversation();
+        });
+        
+        // Start with a new conversation on page load
+        startNewConversation();
     </script>
 </body>
 </html>

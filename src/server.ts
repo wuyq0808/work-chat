@@ -118,7 +118,7 @@ app.post(
     // Bearer token authentication check
     verifyBearerToken(req);
 
-    const { input, provider } = req.body;
+    const { input, provider, conversationId } = req.body;
 
     if (!input) {
       return res.status(400).json({
@@ -155,6 +155,7 @@ app.post(
       azureToken,
       atlassianToken,
       provider: provider as AIProvider,
+      conversationId,
     });
 
     // Check if response starts with "Error:" to determine success

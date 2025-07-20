@@ -3,6 +3,8 @@ import {
   HumanMessage,
   ToolMessage,
   SystemMessage,
+  BaseMessage,
+  AIMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
@@ -20,8 +22,25 @@ const chatGemini = new ChatGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
+// Simple in-memory conversation history storage
+const conversationHistories = new Map<string, BaseMessage[]>();
+
+function getConversationHistory(conversationId: string): BaseMessage[] {
+  if (!conversationHistories.has(conversationId)) {
+    conversationHistories.set(conversationId, []);
+  }
+  return conversationHistories.get(conversationId)!;
+}
+
+function addToConversationHistory(
+  conversationId: string,
+  message: BaseMessage
+): void {
+  const history = getConversationHistory(conversationId);
+  history.push(message);
+}
+
 function createPromptEnhancementMessage(
-  input: string,
   availableTools: StructuredTool[]
 ): SystemMessage {
   const toolsList = availableTools
@@ -33,32 +52,30 @@ function createPromptEnhancementMessage(
 Available tools:
 ${toolsList}
 
-When you receive a vague request like "find me something" or "show me something important":
-1. Automatically interpret it as finding recent, relevant, or important information
-2. Use available tools to search for useful content (recent messages, documents, updates, etc.)
-3. Always return something useful rather than asking for more details
-4. ALWAYS indicate the source of each result (Slack, Email, Jira, Confluence, etc.) so users know where to find the original
-5. Prioritize timeliness - focus on new messages and recent content first
+## SEARCH STRATEGY
+For vague requests like "find me something" or "show me something important":
+- Use time-based searches WITHOUT specific keywords - focus on recent content from the last 2 weeks
+- Retrieve at least 10 messages/items from each available tool to find truly important content
+- Prioritize recency over keyword matching when requests are general or vague
+- Cast a wide net first, then filter for the most important and relevant information
 
-For Slack and Email specifically, prioritize content that needs personal attention:
+## CONTENT PRIORITIZATION
+For Slack and Email specifically:
 - Direct messages or mentions directed at you personally
 - Questions or requests specifically addressed to you
 - AVOID group broadcast emails, system notifications, automated messages
 - Prioritize newer messages over older ones
 
-For each result you present, clearly mention:
-- WHERE it came from (e.g., "From Slack:", "From Jira:", "From Confluence:")
-- Channel/location details when available (e.g., "#general channel", "PROJECT-123", "Space Name")
+## RESPONSE FORMAT
+- Provide SUMMARIES, not full lists of results
+- Keep responses concise and focused on the most important information
 
-ADDITIONAL INSTRUCTION - Result Quality Assessment:
-After using tools to search, evaluate if your results directly answer the user's question. If the results are poor, irrelevant, or don't match what was asked:
-- Try additional search strategies with different keywords or approaches
-- Use multiple tools if available to get comprehensive results
+## QUALITY ASSURANCE
 - Be persistent in finding relevant results before responding
-
-Always be persistent in finding relevant results before responding.
-
-Never ask follow-up questions. Never suggest ways to make requests more specific. Always provide results only.`);
+- If initial results are poor, try additional search strategies with different approaches
+- Use multiple tools if available to get comprehensive results
+- Never ask follow-up questions or suggest ways to make requests more specific
+- Always provide results only`);
 }
 
 async function processResponseWithTools(
@@ -127,6 +144,10 @@ async function processResponseWithTools(
 export async function callGemini(request: AIRequest): Promise<string> {
   try {
     const allTools = [];
+    if (!request.conversationId) {
+      throw new Error('conversationId is required');
+    }
+    const conversationId = request.conversationId;
 
     // Try Slack
     if (request.slackToken) {
@@ -173,29 +194,37 @@ export async function callGemini(request: AIRequest): Promise<string> {
       }
     }
 
-    // If no tools loaded, use without tools
+    // If no tools loaded, return helpful message
     if (allTools.length === 0) {
-      const response = await chatGemini.invoke([
-        new HumanMessage(request.input),
-      ]);
-      return typeof response.content === 'string'
-        ? response.content
-        : JSON.stringify(response.content);
+      return 'No external tools are connected. Please ensure at least one token (Slack, Azure, or Atlassian) is properly configured to access your data.';
     }
 
-    // Create message chain: enhancement system message + user input
-    const messages = [
-      createPromptEnhancementMessage(request.input, allTools),
-      new HumanMessage(request.input),
-    ];
+    // Get conversation history
+    const history = getConversationHistory(conversationId);
+
+    // Add current user message to history
+    const userMessage = new HumanMessage(request.input);
+    addToConversationHistory(conversationId, userMessage);
 
     // Use LangChain ChatGoogleGenerativeAI with tools and message chain
-    const response = await chatGemini.invoke(messages, {
-      tools: allTools,
-    });
+    const response = await chatGemini.invoke(
+      [createPromptEnhancementMessage(allTools), ...history, userMessage],
+      {
+        tools: allTools,
+      }
+    );
 
     // Handle the response which may contain tool calls
-    return await processResponseWithTools(response, allTools, request.input);
+    const finalResponse = await processResponseWithTools(
+      response,
+      allTools,
+      request.input
+    );
+
+    // Add AI response to history
+    addToConversationHistory(conversationId, new AIMessage(finalResponse));
+
+    return finalResponse;
   } catch (error) {
     return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
   }

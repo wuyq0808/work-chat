@@ -10,6 +10,7 @@ export interface AIRequest {
   azureToken?: string;
   atlassianToken?: string;
   provider?: AIProvider;
+  conversationId?: string;
 }
 
 export async function callAI(request: AIRequest): Promise<string> {
