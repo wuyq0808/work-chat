@@ -48,11 +48,7 @@ export class AzureMCPStdioServer {
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(
-        this.toolHandlers.getTools(),
-        `azure__${name}`,
-        args
-      );
+      return await executeTool(this.toolHandlers.getTools(), name, args);
     });
   }
 

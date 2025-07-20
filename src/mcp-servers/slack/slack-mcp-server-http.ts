@@ -51,18 +51,15 @@ export class SlackStreamableMCPServer {
     const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      // Remove prefix for MCP registration (slack__conversations_history -> conversations_history)
-      const mcpToolName = toolDef.name.replace('slack__', '');
-
       server.registerTool(
-        mcpToolName,
+        toolDef.name,
         {
           description: toolDef.description,
           inputSchema: toolDef.inputSchema,
         },
         async (args: any) => {
           const result = await executeTool(
-            this.toolHandlers.getTools(),
+            this.toolHandlers!.getTools(),
             toolDef.name,
             args
           );

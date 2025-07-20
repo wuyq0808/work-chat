@@ -51,11 +51,8 @@ export class AzureStreamableMCPServer {
     const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      // Remove prefix for MCP registration (azure__get_profile -> get_profile)
-      const mcpToolName = toolDef.name.replace('azure__', '');
-
       server.registerTool(
-        mcpToolName,
+        toolDef.name,
         {
           description: toolDef.description,
           inputSchema: toolDef.inputSchema,

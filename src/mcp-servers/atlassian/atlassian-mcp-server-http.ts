@@ -54,11 +54,8 @@ export class AtlassianStreamableMCPServer {
     const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      // Remove prefix for MCP registration (atlassian__search_jira_issues -> search_jira_issues)
-      const mcpToolName = toolDef.name.replace('atlassian__', '');
-
       server.registerTool(
-        mcpToolName,
+        toolDef.name,
         {
           description: toolDef.description,
           inputSchema: toolDef.inputSchema,

@@ -46,11 +46,7 @@ export class SlackMCPStdioServer {
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(
-        this.toolHandlers.getTools(),
-        `slack__${name}`,
-        args
-      );
+      return await executeTool(this.toolHandlers.getTools(), name, args);
     });
   }
 
