@@ -1,8 +1,8 @@
-import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { SlackMCPClient, type SlackConfig } from './slack-client.js';
 import { SlackToolHandlers } from './slack-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class SlackStreamableMCPServer {
   private slackClient: SlackMCPClient | null = null;
@@ -48,94 +48,30 @@ export class SlackStreamableMCPServer {
       throw new Error('Tool handlers not initialized');
     }
 
-    const toolDefinitions = this.toolHandlers.getToolDefinitions();
+    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      switch (toolDef.name) {
-        case 'conversations_history':
-          server.registerTool(
-            'conversations_history',
-            {
-              title: 'Get Slack Conversation History',
-              description: toolDef.description,
-              inputSchema: toolDef.inputSchema,
-            },
-            async (args: any) => {
-              const result = await this.toolHandlers!.executeTool(
-                'conversations_history',
-                args
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
+      // Remove prefix for MCP registration (slack__conversations_history -> conversations_history)
+      const mcpToolName = toolDef.name.replace('slack__', '');
 
-        case 'channels_list':
-          server.registerTool(
-            'channels_list',
-            {
-              title: 'List Slack Channels',
-              description: toolDef.description,
-              inputSchema: toolDef.inputSchema,
-            },
-            async (args: any) => {
-              const result = await this.toolHandlers!.executeTool(
-                'channels_list',
-                args
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
+      server.registerTool(
+        mcpToolName,
+        {
+          description: toolDef.description,
+          inputSchema: toolDef.inputSchema,
+        },
+        async (args: any) => {
+          const result = await executeTool(
+            this.toolHandlers.getTools(),
+            toolDef.name,
+            args
           );
-          break;
-
-        case 'conversations_replies':
-          server.registerTool(
-            'conversations_replies',
-            {
-              title: 'Get Slack Thread Replies',
-              description: toolDef.description,
-              inputSchema: toolDef.inputSchema,
-            },
-            async (args: any) => {
-              const result = await this.toolHandlers!.executeTool(
-                'conversations_replies',
-                args
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
-
-        case 'search_messages':
-          server.registerTool(
-            'search_messages',
-            {
-              title: 'Search Slack Messages',
-              description: toolDef.description,
-              inputSchema: toolDef.inputSchema,
-            },
-            async (args: any) => {
-              const result = await this.toolHandlers!.executeTool(
-                'search_messages',
-                args
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
-      }
+          if (result.isError) {
+            throw new Error(result.content[0].text);
+          }
+          return result;
+        }
+      );
     }
   }
 

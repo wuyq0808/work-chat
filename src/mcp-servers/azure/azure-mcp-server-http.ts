@@ -1,8 +1,8 @@
-import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { AzureMCPClient, type AzureConfig } from './azure-client.js';
 import { AzureToolHandlers } from './azure-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AzureStreamableMCPServer {
   private azureClient: AzureMCPClient | null = null;
@@ -42,115 +42,36 @@ export class AzureStreamableMCPServer {
     return server;
   }
 
-  // Register all Azure tools with a streamable MCP server (inlined from adapter)
+  // Register all Azure tools with a streamable MCP server
   private registerTools(server: McpServer): void {
     if (!this.toolHandlers) {
       throw new Error('Tool handlers not initialized');
     }
 
-    const toolDefinitions = this.toolHandlers.getToolDefinitions();
+    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      switch (toolDef.name) {
-        case 'get_profile':
-          server.registerTool(
-            'get_profile',
-            {
-              title: 'Get Azure User Profile',
-              description: toolDef.description,
-              inputSchema: {},
-            },
-            async () => {
-              const result = await this.toolHandlers!.executeTool(
-                'get_profile',
-                {}
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
+      // Remove prefix for MCP registration (azure__get_profile -> get_profile)
+      const mcpToolName = toolDef.name.replace('azure__', '');
 
-        case 'get_messages':
-          server.registerTool(
-            'get_messages',
-            {
-              title: 'Get Outlook Messages',
-              description: toolDef.description,
-              inputSchema: {
-                limit: z
-                  .number()
-                  .optional()
-                  .describe('Number of messages to retrieve (default: 10)'),
-                filter: z
-                  .string()
-                  .optional()
-                  .describe(
-                    'OData filter expression (e.g., "isRead eq false")'
-                  ),
-                search: z
-                  .string()
-                  .optional()
-                  .describe('Search query for messages'),
-              },
-            },
-            async ({ limit = 10, filter, search }) => {
-              const result = await this.toolHandlers!.executeTool(
-                'get_messages',
-                {
-                  limit,
-                  filter,
-                  search,
-                }
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
+      server.registerTool(
+        mcpToolName,
+        {
+          description: toolDef.description,
+          inputSchema: toolDef.inputSchema,
+        },
+        async (args: any) => {
+          const result = await executeTool(
+            this.toolHandlers!.getTools(),
+            toolDef.name,
+            args
           );
-          break;
-
-        case 'get_calendar_events':
-          server.registerTool(
-            'get_calendar_events',
-            {
-              title: 'Get Calendar Events',
-              description: toolDef.description,
-              inputSchema: {
-                limit: z
-                  .number()
-                  .optional()
-                  .describe('Number of events to retrieve (default: 10)'),
-                start_time: z
-                  .string()
-                  .optional()
-                  .describe('Start time filter (ISO 8601 format)'),
-                end_time: z
-                  .string()
-                  .optional()
-                  .describe('End time filter (ISO 8601 format)'),
-              },
-            },
-            async ({ limit = 10, start_time, end_time }) => {
-              const result = await this.toolHandlers!.executeTool(
-                'get_calendar_events',
-                {
-                  limit,
-                  start_time,
-                  end_time,
-                }
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
-      }
+          if (result.isError) {
+            throw new Error(result.content[0].text);
+          }
+          return result;
+        }
+      );
     }
   }
 

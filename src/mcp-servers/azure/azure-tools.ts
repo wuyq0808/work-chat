@@ -93,56 +93,6 @@ export class AzureToolHandlers {
     return this.tools;
   }
 
-  // Get tool definitions for MCP compatibility
-  getToolDefinitions() {
-    return this.tools.map(tool => ({
-      name: tool.name.replace('azure__', ''),
-      description: tool.description,
-      inputSchema: 'shape' in tool.schema ? tool.schema.shape : tool.schema._def.schema.shape,
-    }));
-  }
-
-  // Execute a tool by name (for MCP compatibility)
-  async executeTool(name: string, args: any): Promise<ToolResponse> {
-    try {
-      const tool = this.tools.find(t => t.name === `azure__${name}`);
-      if (!tool) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Unknown tool: ${name}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Execute the tool and get the string result
-      const result = await tool.invoke(args);
-
-      // Convert string result back to ToolResponse format for MCP
-      return {
-        content: [
-          {
-            type: 'text',
-            text: result,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
   private async handleGetProfile(): Promise<ToolResponse> {
     const profileResult = await this.azureClient.getProfile();
 

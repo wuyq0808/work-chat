@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
@@ -6,6 +5,7 @@ import {
   type AtlassianConfig,
 } from './atlassian-client.js';
 import { AtlassianToolHandlers } from './atlassian-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AtlassianStreamableMCPServer {
   private atlassianClient: AtlassianMCPClient | null = null;
@@ -51,80 +51,30 @@ export class AtlassianStreamableMCPServer {
       throw new Error('Tool handlers not initialized');
     }
 
-    const toolDefinitions = this.toolHandlers.getToolDefinitions();
+    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
 
     for (const toolDef of toolDefinitions) {
-      switch (toolDef.name) {
-        case 'search_jira_issues':
-          server.registerTool(
-            'search_jira_issues',
-            {
-              title: 'Search Jira Issues',
-              description: toolDef.description,
-              inputSchema: {
-                jql: z
-                  .string()
-                  .describe(
-                    'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")'
-                  ),
-                maxResults: z
-                  .number()
-                  .optional()
-                  .describe(
-                    'Maximum number of results to return (default: 10)'
-                  ),
-              },
-            },
-            async ({ jql, maxResults = 10 }) => {
-              const result = await this.toolHandlers!.executeTool(
-                'search_jira_issues',
-                {
-                  jql,
-                  maxResults,
-                }
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
-          );
-          break;
+      // Remove prefix for MCP registration (atlassian__search_jira_issues -> search_jira_issues)
+      const mcpToolName = toolDef.name.replace('atlassian__', '');
 
-        case 'search_confluence_pages':
-          server.registerTool(
-            'search_confluence_pages',
-            {
-              title: 'Search Confluence Pages',
-              description: toolDef.description,
-              inputSchema: {
-                query: z
-                  .string()
-                  .describe('Search query for page titles or content'),
-                maxResults: z
-                  .number()
-                  .optional()
-                  .describe(
-                    'Maximum number of results to return (default: 10)'
-                  ),
-              },
-            },
-            async ({ query, maxResults = 10 }) => {
-              const result = await this.toolHandlers!.executeTool(
-                'search_confluence_pages',
-                {
-                  query,
-                  maxResults,
-                }
-              );
-              if (result.isError) {
-                throw new Error(result.content[0].text);
-              }
-              return result;
-            }
+      server.registerTool(
+        mcpToolName,
+        {
+          description: toolDef.description,
+          inputSchema: toolDef.inputSchema,
+        },
+        async (args: any) => {
+          const result = await executeTool(
+            this.toolHandlers!.getTools(),
+            toolDef.name,
+            args
           );
-          break;
-      }
+          if (result.isError) {
+            throw new Error(result.content[0].text);
+          }
+          return result;
+        }
+      );
     }
   }
 

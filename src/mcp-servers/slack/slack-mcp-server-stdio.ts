@@ -5,6 +5,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { SlackMCPClient, type SlackConfig } from './slack-client.js';
 import { SlackToolHandlers } from './slack-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class SlackMCPStdioServer {
   private slackClient: SlackMCPClient;
@@ -38,14 +39,18 @@ export class SlackMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: this.toolHandlers.getToolDefinitions(),
+        tools: getToolDefinitions(this.toolHandlers.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await this.toolHandlers.executeTool(name, args);
+      return await executeTool(
+        this.toolHandlers.getTools(),
+        `slack__${name}`,
+        args
+      );
     });
   }
 

@@ -8,6 +8,7 @@ import {
   type AtlassianConfig,
 } from './atlassian-client.js';
 import { AtlassianToolHandlers } from './atlassian-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AtlassianMCPStdioServer {
   private atlassianClient: AtlassianMCPClient;
@@ -41,14 +42,18 @@ export class AtlassianMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: this.toolHandlers.getToolDefinitions(),
+        tools: getToolDefinitions(this.toolHandlers.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await this.toolHandlers.executeTool(name, args);
+      return await executeTool(
+        this.toolHandlers.getTools(),
+        `atlassian__${name}`,
+        args
+      );
     });
   }
 

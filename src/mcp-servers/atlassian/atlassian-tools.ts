@@ -116,56 +116,6 @@ export class AtlassianToolHandlers {
     return this.tools;
   }
 
-  // Get tool definitions for MCP compatibility
-  getToolDefinitions() {
-    return this.tools.map(tool => ({
-      name: tool.name.replace('atlassian__', ''),
-      description: tool.description,
-      inputSchema: 'shape' in tool.schema ? tool.schema.shape : tool.schema._def.schema.shape,
-    }));
-  }
-
-  // Execute a tool by name (for MCP compatibility)
-  async executeTool(name: string, args: any): Promise<ToolResponse> {
-    try {
-      const tool = this.tools.find(t => t.name === `atlassian__${name}`);
-      if (!tool) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Unknown tool: ${name}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Execute the tool and get the string result
-      const result = await tool.invoke(args);
-
-      // Convert string result back to ToolResponse format for MCP
-      return {
-        content: [
-          {
-            type: 'text',
-            text: result,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
   private async handleSearchJiraIssues(args: any): Promise<ToolResponse> {
     const { jql, maxResults = 10 } = args as {
       jql: string;

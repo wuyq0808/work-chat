@@ -5,6 +5,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { AzureMCPClient } from './azure-client.js';
 import { AzureToolHandlers } from './azure-tools.js';
+import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AzureMCPStdioServer {
   private azureClient: AzureMCPClient;
@@ -40,14 +41,18 @@ export class AzureMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: this.toolHandlers.getToolDefinitions(),
+        tools: getToolDefinitions(this.toolHandlers.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await this.toolHandlers.executeTool(name, args);
+      return await executeTool(
+        this.toolHandlers.getTools(),
+        `azure__${name}`,
+        args
+      );
     });
   }
 
