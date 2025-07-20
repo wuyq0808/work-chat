@@ -227,31 +227,33 @@ export class AtlassianMCPClient {
       }
 
       let cqlQuery: string;
-      
+
       if (options.cql) {
         // Use provided CQL query directly
         cqlQuery = options.cql;
       } else {
         // Build CQL query from options
         const cqlParts: string[] = [];
-        
+
         // Add type filter
         if (options.type) {
           cqlParts.push(`type = ${options.type}`);
         } else {
           cqlParts.push('type = page'); // Default to pages
         }
-        
+
         // Add space filter
         if (options.space) {
           cqlParts.push(`space = "${options.space}"`);
         }
-        
+
         // Add text search
         if (options.query) {
-          cqlParts.push(`(title ~ "${options.query}" OR text ~ "${options.query}")`);
+          cqlParts.push(
+            `(title ~ "${options.query}" OR text ~ "${options.query}")`
+          );
         }
-        
+
         cqlQuery = cqlParts.join(' AND ');
       }
 
@@ -326,17 +328,18 @@ export class AtlassianMCPClient {
       }
 
       const result = await response.json();
-      
+
       // Filter spaces by query if provided
       if (query) {
-        const filteredResults = result.results.filter((space: ConfluenceSpace) => 
-          space.name.toLowerCase().includes(query.toLowerCase()) ||
-          space.key.toLowerCase().includes(query.toLowerCase())
+        const filteredResults = result.results.filter(
+          (space: ConfluenceSpace) =>
+            space.name.toLowerCase().includes(query.toLowerCase()) ||
+            space.key.toLowerCase().includes(query.toLowerCase())
         );
         result.results = filteredResults;
         result.size = filteredResults.length;
       }
-      
+
       return {
         success: true,
         data: result,

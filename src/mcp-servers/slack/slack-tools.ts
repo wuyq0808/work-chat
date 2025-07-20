@@ -45,7 +45,8 @@ export class SlackToolHandlers {
       },
       {
         name: 'channels_list',
-        description: 'List all accessible Slack channels with pagination support',
+        description:
+          'List all accessible Slack channels with pagination support',
         inputSchema: {
           type: 'object',
           properties: {
@@ -231,7 +232,11 @@ export class SlackToolHandlers {
   }
 
   private async handleConversationsReplies(args: any): Promise<ToolResponse> {
-    const { channel_id, thread_ts, limit = 10 } = args as {
+    const {
+      channel_id,
+      thread_ts,
+      limit = 10,
+    } = args as {
       channel_id: string;
       thread_ts: string;
       limit?: number;

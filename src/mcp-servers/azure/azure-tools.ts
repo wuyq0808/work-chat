@@ -27,7 +27,8 @@ export class AzureToolHandlers {
     return [
       {
         name: 'get_profile',
-        description: 'Get the current user profile information from Microsoft Graph',
+        description:
+          'Get the current user profile information from Microsoft Graph',
         inputSchema: {
           type: 'object',
           properties: {},
@@ -123,7 +124,8 @@ export class AzureToolHandlers {
 
     if (profileResult.success && profileResult.data) {
       const profile = profileResult.data;
-      let content = 'id,displayName,userPrincipalName,mail,jobTitle,department,officeLocation\n';
+      let content =
+        'id,displayName,userPrincipalName,mail,jobTitle,department,officeLocation\n';
       content += `${profile.id},${profile.displayName},${profile.userPrincipalName},${profile.mail || ''},${profile.jobTitle || ''},${profile.department || ''},${profile.officeLocation || ''}\n`;
 
       return {
@@ -165,7 +167,8 @@ export class AzureToolHandlers {
     });
 
     if (messagesResult.success && messagesResult.data) {
-      let content = 'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
+      let content =
+        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
       messagesResult.data.forEach(msg => {
         content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${msg.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
       });
@@ -209,7 +212,8 @@ export class AzureToolHandlers {
     });
 
     if (eventsResult.success && eventsResult.data) {
-      let content = 'id,subject,start,end,location,attendees,organizer,importance,body\n';
+      let content =
+        'id,subject,start,end,location,attendees,organizer,importance,body\n';
       eventsResult.data.forEach(event => {
         content += `${event.id},"${event.subject.replace(/"/g, '""')}",${event.start},${event.end},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance},"${event.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
       });

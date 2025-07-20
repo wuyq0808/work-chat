@@ -224,5 +224,4 @@ export class AzureOAuthService {
     const tokenResponse = await this.exchangeCodeForToken(code);
     return tokenResponse.access_token;
   }
-
 }

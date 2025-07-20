@@ -59,7 +59,7 @@ export class AtlassianToolHandlers {
             cql: {
               type: 'string',
               description:
-                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \"search term\"")',
+                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \\"search term\\"")',
             },
             space: {
               type: 'string',

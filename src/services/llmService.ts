@@ -12,10 +12,6 @@ export interface AIRequest {
   provider?: AIProvider;
 }
 
-
-
-
-
 export async function callAI(request: AIRequest): Promise<string> {
   const provider = request.provider || 'openai';
 

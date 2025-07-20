@@ -22,7 +22,9 @@ export class AtlassianStreamableMCPServer {
   // Create the MCP server instance
   createServer(): McpServer {
     if (!this.toolHandlers) {
-      throw new Error('Atlassian client not initialized. Call initializeAtlassianClient() first.');
+      throw new Error(
+        'Atlassian client not initialized. Call initializeAtlassianClient() first.'
+      );
     }
 
     const server = new McpServer(
@@ -68,14 +70,19 @@ export class AtlassianStreamableMCPServer {
                 maxResults: z
                   .number()
                   .optional()
-                  .describe('Maximum number of results to return (default: 10)'),
+                  .describe(
+                    'Maximum number of results to return (default: 10)'
+                  ),
               },
             },
             async ({ jql, maxResults = 10 }) => {
-              const result = await this.toolHandlers!.executeTool('search_jira_issues', {
-                jql,
-                maxResults,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'search_jira_issues',
+                {
+                  jql,
+                  maxResults,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -91,18 +98,25 @@ export class AtlassianStreamableMCPServer {
               title: 'Search Confluence Pages',
               description: toolDef.description,
               inputSchema: {
-                query: z.string().describe('Search query for page titles or content'),
+                query: z
+                  .string()
+                  .describe('Search query for page titles or content'),
                 maxResults: z
                   .number()
                   .optional()
-                  .describe('Maximum number of results to return (default: 10)'),
+                  .describe(
+                    'Maximum number of results to return (default: 10)'
+                  ),
               },
             },
             async ({ query, maxResults = 10 }) => {
-              const result = await this.toolHandlers!.executeTool('search_confluence_pages', {
-                query,
-                maxResults,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'search_confluence_pages',
+                {
+                  query,
+                  maxResults,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }

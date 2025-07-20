@@ -3,7 +3,10 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AtlassianMCPClient, type AtlassianConfig } from './atlassian-client.js';
+import {
+  AtlassianMCPClient,
+  type AtlassianConfig,
+} from './atlassian-client.js';
 import { AtlassianToolHandlers } from './atlassian-tools.js';
 
 export class AtlassianMCPStdioServer {

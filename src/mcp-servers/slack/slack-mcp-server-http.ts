@@ -19,7 +19,9 @@ export class SlackStreamableMCPServer {
   // Create the MCP server instance
   createServer(): McpServer {
     if (!this.toolHandlers) {
-      throw new Error('Slack client not initialized. Call initializeSlackClient() first.');
+      throw new Error(
+        'Slack client not initialized. Call initializeSlackClient() first.'
+      );
     }
 
     const server = new McpServer(
@@ -67,10 +69,13 @@ export class SlackStreamableMCPServer {
               },
             },
             async ({ channel_id, limit = 10 }) => {
-              const result = await this.toolHandlers!.executeTool('conversations_history', {
-                channel_id,
-                limit,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'conversations_history',
+                {
+                  channel_id,
+                  limit,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -94,10 +99,13 @@ export class SlackStreamableMCPServer {
               },
             },
             async ({ cursor, limit }) => {
-              const result = await this.toolHandlers!.executeTool('channels_list', {
-                cursor,
-                limit,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'channels_list',
+                {
+                  cursor,
+                  limit,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -126,11 +134,14 @@ export class SlackStreamableMCPServer {
               },
             },
             async ({ channel_id, thread_ts, limit = 10 }) => {
-              const result = await this.toolHandlers!.executeTool('conversations_replies', {
-                channel_id,
-                thread_ts,
-                limit,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'conversations_replies',
+                {
+                  channel_id,
+                  thread_ts,
+                  limit,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -161,13 +172,21 @@ export class SlackStreamableMCPServer {
                   .describe('Sort direction'),
               },
             },
-            async ({ query, count = 20, sort = 'timestamp', sort_dir = 'desc' }) => {
-              const result = await this.toolHandlers!.executeTool('search_messages', {
-                query,
-                count,
-                sort,
-                sort_dir,
-              });
+            async ({
+              query,
+              count = 20,
+              sort = 'timestamp',
+              sort_dir = 'desc',
+            }) => {
+              const result = await this.toolHandlers!.executeTool(
+                'search_messages',
+                {
+                  query,
+                  count,
+                  sort,
+                  sort_dir,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }

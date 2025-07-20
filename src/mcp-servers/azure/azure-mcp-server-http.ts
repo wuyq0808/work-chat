@@ -19,7 +19,9 @@ export class AzureStreamableMCPServer {
   // Create the MCP server instance
   createServer(): McpServer {
     if (!this.toolHandlers) {
-      throw new Error('Azure client not initialized. Call initializeAzureClient() first.');
+      throw new Error(
+        'Azure client not initialized. Call initializeAzureClient() first.'
+      );
     }
 
     const server = new McpServer(
@@ -59,7 +61,10 @@ export class AzureStreamableMCPServer {
               inputSchema: {},
             },
             async () => {
-              const result = await this.toolHandlers!.executeTool('get_profile', {});
+              const result = await this.toolHandlers!.executeTool(
+                'get_profile',
+                {}
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -82,16 +87,24 @@ export class AzureStreamableMCPServer {
                 filter: z
                   .string()
                   .optional()
-                  .describe('OData filter expression (e.g., "isRead eq false")'),
-                search: z.string().optional().describe('Search query for messages'),
+                  .describe(
+                    'OData filter expression (e.g., "isRead eq false")'
+                  ),
+                search: z
+                  .string()
+                  .optional()
+                  .describe('Search query for messages'),
               },
             },
             async ({ limit = 10, filter, search }) => {
-              const result = await this.toolHandlers!.executeTool('get_messages', {
-                limit,
-                filter,
-                search,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'get_messages',
+                {
+                  limit,
+                  filter,
+                  search,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
@@ -122,11 +135,14 @@ export class AzureStreamableMCPServer {
               },
             },
             async ({ limit = 10, start_time, end_time }) => {
-              const result = await this.toolHandlers!.executeTool('get_calendar_events', {
-                limit,
-                start_time,
-                end_time,
-              });
+              const result = await this.toolHandlers!.executeTool(
+                'get_calendar_events',
+                {
+                  limit,
+                  start_time,
+                  end_time,
+                }
+              );
               if (result.isError) {
                 throw new Error(result.content[0].text);
               }
