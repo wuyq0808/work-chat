@@ -97,6 +97,7 @@ export async function callGemini(request: AIRequest): Promise<string> {
 
     // Create tools array by combining all connected clients
     const tools = [];
+
     if (connectedClients.length > 0) {
       try {
         // Collect all function declarations from all clients
@@ -132,7 +133,7 @@ export async function callGemini(request: AIRequest): Promise<string> {
     }
 
     const config: any = {
-      maxOutputTokens: 1024,
+      maxOutputTokens: 4096,
       temperature: 0.7,
     };
 
@@ -143,7 +144,7 @@ export async function callGemini(request: AIRequest): Promise<string> {
 
     let response = await gemini.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: request.input,
+      contents: [{ role: 'user', parts: [{ text: request.input }] }],
       config,
     });
 
@@ -242,7 +243,7 @@ export async function callGemini(request: AIRequest): Promise<string> {
             model: 'gemini-2.5-flash',
             contents: conversationHistory,
             config: {
-              maxOutputTokens: 1024,
+              maxOutputTokens: 4096,
               temperature: 0.7,
             }, // Don't include tools in follow-up to avoid infinite loops
           });
@@ -250,7 +251,7 @@ export async function callGemini(request: AIRequest): Promise<string> {
       }
     }
 
-    // Handle multipart responses from Gemini (text + tool calls)
+    // Extract text content from response
     let output = '';
     if (
       response.candidates &&
@@ -259,19 +260,15 @@ export async function callGemini(request: AIRequest): Promise<string> {
     ) {
       const parts = response.candidates[0].content.parts || [];
       for (const part of parts) {
-        if (part.text) {
+        if (part.text && part.text.trim()) {
           output += part.text;
-        } else if (part.functionCall) {
-          // Tool calls are handled automatically by the MCP integration
-          // Just acknowledge that tools were used
-          output += `[Used tool: ${part.functionCall.name}] `;
         }
       }
     }
 
     // Fallback to response.text if candidates structure is not available
-    if (!output) {
-      output = response.text || '';
+    if (!output && response.text && response.text.trim()) {
+      output = response.text;
     }
 
     return output || 'No response generated';
