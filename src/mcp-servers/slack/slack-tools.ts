@@ -123,16 +123,16 @@ export class SlackToolHandlers {
   // Get tool definitions for MCP compatibility
   getToolDefinitions() {
     return this.tools.map(tool => ({
-      name: tool.name,
+      name: tool.name.replace('slack__', ''),
       description: tool.description,
-      inputSchema: tool.schema,
+      inputSchema: 'shape' in tool.schema ? tool.schema.shape : tool.schema._def.schema.shape,
     }));
   }
 
   // Execute a tool by name (for MCP compatibility)
   async executeTool(name: string, args: any): Promise<ToolResponse> {
     try {
-      const tool = this.tools.find(t => t.name === name);
+      const tool = this.tools.find(t => t.name === `slack__${name}`);
       if (!tool) {
         return {
           content: [

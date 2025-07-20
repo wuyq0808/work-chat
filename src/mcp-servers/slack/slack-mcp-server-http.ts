@@ -58,23 +58,12 @@ export class SlackStreamableMCPServer {
             {
               title: 'Get Slack Conversation History',
               description: toolDef.description,
-              inputSchema: {
-                channel_id: z
-                  .string()
-                  .describe('Channel ID or name (e.g., #general)'),
-                limit: z
-                  .number()
-                  .optional()
-                  .describe('Number of messages (default: 10)'),
-              },
+              inputSchema: toolDef.inputSchema,
             },
-            async ({ channel_id, limit = 10 }) => {
+            async (args: any) => {
               const result = await this.toolHandlers!.executeTool(
                 'conversations_history',
-                {
-                  channel_id,
-                  limit,
-                }
+                args
               );
               if (result.isError) {
                 throw new Error(result.content[0].text);
@@ -90,21 +79,12 @@ export class SlackStreamableMCPServer {
             {
               title: 'List Slack Channels',
               description: toolDef.description,
-              inputSchema: {
-                cursor: z.string().optional().describe('Pagination cursor'),
-                limit: z
-                  .number()
-                  .optional()
-                  .describe('Number of channels (default: 10, max: 100)'),
-              },
+              inputSchema: toolDef.inputSchema,
             },
-            async ({ cursor, limit }) => {
+            async (args: any) => {
               const result = await this.toolHandlers!.executeTool(
                 'channels_list',
-                {
-                  cursor,
-                  limit,
-                }
+                args
               );
               if (result.isError) {
                 throw new Error(result.content[0].text);
@@ -120,27 +100,12 @@ export class SlackStreamableMCPServer {
             {
               title: 'Get Slack Thread Replies',
               description: toolDef.description,
-              inputSchema: {
-                channel_id: z
-                  .string()
-                  .describe('Channel ID or name (e.g., #general)'),
-                thread_ts: z
-                  .string()
-                  .describe('Thread timestamp (e.g., 1234567890.123456)'),
-                limit: z
-                  .number()
-                  .optional()
-                  .describe('Number of replies (default: 10)'),
-              },
+              inputSchema: toolDef.inputSchema,
             },
-            async ({ channel_id, thread_ts, limit = 10 }) => {
+            async (args: any) => {
               const result = await this.toolHandlers!.executeTool(
                 'conversations_replies',
-                {
-                  channel_id,
-                  thread_ts,
-                  limit,
-                }
+                args
               );
               if (result.isError) {
                 throw new Error(result.content[0].text);
@@ -156,36 +121,12 @@ export class SlackStreamableMCPServer {
             {
               title: 'Search Slack Messages',
               description: toolDef.description,
-              inputSchema: {
-                query: z.string().describe('Search query text'),
-                count: z
-                  .number()
-                  .optional()
-                  .describe('Number of results (default: 20)'),
-                sort: z
-                  .enum(['score', 'timestamp'])
-                  .optional()
-                  .describe('Sort by relevance or time'),
-                sort_dir: z
-                  .enum(['asc', 'desc'])
-                  .optional()
-                  .describe('Sort direction'),
-              },
+              inputSchema: toolDef.inputSchema,
             },
-            async ({
-              query,
-              count = 20,
-              sort = 'timestamp',
-              sort_dir = 'desc',
-            }) => {
+            async (args: any) => {
               const result = await this.toolHandlers!.executeTool(
                 'search_messages',
-                {
-                  query,
-                  count,
-                  sort,
-                  sort_dir,
-                }
+                args
               );
               if (result.isError) {
                 throw new Error(result.content[0].text);
