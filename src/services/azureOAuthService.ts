@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   accessTokenCookieString,
-  refreshTokenCookieString,
   regularCookieString,
 } from '../utils/cookieUtils.js';
 
@@ -10,7 +9,6 @@ interface AzureTokenResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
-  refresh_token?: string;
   scope: string;
 }
 
@@ -162,17 +160,6 @@ export class AzureOAuthService {
         ),
       ];
 
-      // Store refresh token if available
-      if (tokenResponse.refresh_token) {
-        cookies.push(
-          refreshTokenCookieString(
-            'azure_refresh_token',
-            tokenResponse.refresh_token,
-            isProduction
-          )
-        );
-      }
-
       // Store user info in regular cookies
       if (userInfo.displayName) {
         cookies.push(
@@ -238,30 +225,4 @@ export class AzureOAuthService {
     return tokenResponse.access_token;
   }
 
-  async refreshToken(refreshToken: string): Promise<AzureTokenResponse> {
-    const tokenUrl = `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`;
-
-    const body = new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-      scope: this.scopes.join(' '),
-    });
-
-    const response = await globalThis.fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body.toString(),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Token refresh failed: ${error}`);
-    }
-
-    return response.json() as Promise<AzureTokenResponse>;
-  }
 }

@@ -6,29 +6,28 @@
 <body>
     <h1>AI Assistant</h1>
     
-    <div id="installSection">
-        <div id="slackInstall" style="margin-bottom: 15px;">
+    <div id="installSection" style="margin-bottom: 20px;">
+        <span id="azureInstall" style="display: inline-block; margin-right: 10px; vertical-align: middle;">
+            <a href="/azure/install">
+                <img alt="Sign in with Microsoft" height="40" width="215" 
+                     src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNzhkNCIvPgo8cGF0aCBkPSJNMTMuNSA4LjVoOXY5aC05VjguNVptMCAxMC41aDl2OWgtOVYxOVptMTAuNS0xMC41aDl2OWgtOVY4LjVabTAgMTAuNWg5djloLTlWMTlaIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSI0NSIgeT0iMjQiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5TaWduIGluIHdpdGggTWljcm9zb2Z0PC90ZXh0Pgo8L3N2Zz4K">
+            </a>
+        </span>
+        
+        <span id="slackInstall" style="display: inline-block; margin-right: 10px; vertical-align: middle;">
             <a href="/slack/install">
                 <img alt="Add to Slack" height="40" width="139" 
                      src="https://platform.slack-edge.com/img/add_to_slack.png" 
                      srcset="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x">
             </a>
-        </div>
+        </span>
         
-        <div id="azureInstall" style="margin-bottom: 15px;">
-            <a href="/azure/install">
-                <img alt="Sign in with Microsoft" height="40" width="215" 
-                     src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNzhkNCIvPgo8cGF0aCBkPSJNMTMuNSA4LjVoOXY5aC05VjguNVptMCAxMC41aDl2OWgtOVYxOVptMTAuNS0xMC41aDl2OWgtOVY4LjVabTAgMTAuNWg5djloLTlWMTlaIiBmaWxsPSJ3aGl0ZSIvPgo8dGV4dCB4PSI0NSIgeT0iMjQiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5TaWduIGluIHdpdGggTWljcm9zb2Z0PC90ZXh0Pgo8L3N2Zz4K">
-            </a>
-        </div>
-        
-        <div id="atlassianInstall" style="margin-bottom: 15px;">
+        <span id="atlassianInstall" style="display: inline-block; margin-right: 10px; vertical-align: middle;">
             <a href="/atlassian/install">
                 <img alt="Connect with Atlassian" height="40" width="215" 
                      src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiB2aWV3Qm94PSIwIDAgMjE1IDQwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMjE1IiBoZWlnaHQ9IjQwIiByeD0iMyIgZmlsbD0iIzAwNTJjYyIvPgo8cGF0aCBkPSJNMTAuNSA4LjVoNXY1aC01VjguNVptNiAwaDV2NWgtNVY4LjVabTAgNmg1djVoLTVWMTQuNVptNiAwaDV2NWgtNVYxNC41WiIgZmlsbD0id2hpdGUiLz4KPHRleHQgeD0iMzAiIHk9IjI0IiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iNDAwIj5Db25uZWN0IHdpdGggQXRsYXNzaWFuPC90ZXh0Pgo8L3N2Zz4K">
             </a>
-        </div>
-        
+        </span>
     </div>
     
     <form id="chatForm">
@@ -93,32 +92,30 @@ Display them.
         }
 
         
-        // Handle Slack connection status (check for team_name since slack_token is HttpOnly)
-        if (teamNameFromCookie && teamNameFromCookie !== 'null') {
-            // Replace install button with connected banner
-            const teamInfo = document.createElement('div');
-            teamInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f5e8; border-radius: 5px; color: #2eb886;';
-            teamInfo.innerHTML = `<strong>✅ Connected to Slack workspace: ${teamNameFromCookie}</strong>`;
-            document.getElementById('slackInstall').replaceWith(teamInfo);
-        }
-        
         // Handle Azure connection status (check for user_name since azure_token is HttpOnly)
         if (azureUserNameFromCookie && azureUserNameFromCookie !== 'null') {
-            // Replace install button with connected banner
-            const userInfo = document.createElement('div');
-            userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f0ff; border-radius: 5px; color: #0078d4;';
-            const emailText = azureUserEmailFromCookie ? ` (${azureUserEmailFromCookie})` : '';
-            userInfo.innerHTML = `<strong>✅ Connected to Microsoft Azure: ${azureUserNameFromCookie}${emailText}</strong>`;
+            // Replace install button with compact connected status
+            const userInfo = document.createElement('span');
+            userInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f0ff; border-radius: 3px; color: #0078d4; font-size: 14px; vertical-align: middle;';
+            userInfo.innerHTML = `<strong>✅ Azure</strong>`;
             document.getElementById('azureInstall').replaceWith(userInfo);
+        }
+        
+        // Handle Slack connection status (check for team_name since slack_token is HttpOnly)
+        if (teamNameFromCookie && teamNameFromCookie !== 'null') {
+            // Replace install button with compact connected status
+            const teamInfo = document.createElement('span');
+            teamInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f5e8; border-radius: 3px; color: #2eb886; font-size: 14px; vertical-align: middle;';
+            teamInfo.innerHTML = `<strong>✅ Slack</strong>`;
+            document.getElementById('slackInstall').replaceWith(teamInfo);
         }
         
         // Handle Atlassian connection status (check for user_name since atlassian_token is HttpOnly)
         if (atlassianUserNameFromCookie && atlassianUserNameFromCookie !== 'null') {
-            // Replace install button with connected banner
-            const userInfo = document.createElement('div');
-            userInfo.style.cssText = 'margin-bottom: 15px; padding: 10px; background-color: #e8f4ff; border-radius: 5px; color: #0052cc;';
-            const emailText = atlassianUserEmailFromCookie ? ` (${atlassianUserEmailFromCookie})` : '';
-            userInfo.innerHTML = `<strong>✅ Connected to Atlassian: ${atlassianUserNameFromCookie}${emailText}</strong>`;
+            // Replace install button with compact connected status
+            const userInfo = document.createElement('span');
+            userInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f4ff; border-radius: 3px; color: #0052cc; font-size: 14px; vertical-align: middle;';
+            userInfo.innerHTML = `<strong>✅ Atlassian</strong>`;
             document.getElementById('atlassianInstall').replaceWith(userInfo);
         }
         
