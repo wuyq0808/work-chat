@@ -130,8 +130,6 @@ app.post(
   })
 );
 
-// No OAuth endpoints - using simple basic auth instead
-
 // Slack MCP Streamable HTTP endpoint - handles both GET and POST
 app.all(
   '/api/slack-mcp',

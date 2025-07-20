@@ -1,5 +1,10 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import {
+  accessTokenCookieString,
+  refreshTokenCookieString,
+  regularCookieString,
+} from '../utils/cookieUtils.js';
 
 interface AzureTokenResponse {
   access_token: string;
@@ -147,36 +152,45 @@ export class AzureOAuthService {
       // Set secure HttpOnly cookies for Azure tokens and user info
       const isProduction = process.env.NODE_ENV === 'production';
 
-      // Cookie helper functions (reused from Slack implementation)
-      const secureCookieString = (name: string, value: string) =>
-        `${name}=${encodeURIComponent(value)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
-
-      const regularCookieString = (name: string, value: string) =>
-        `${name}=${encodeURIComponent(value)}; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
-
       // Set Azure token as HttpOnly cookie
       const cookies = [
-        secureCookieString('azure_token', tokenResponse.access_token),
+        accessTokenCookieString(
+          'azure_token',
+          tokenResponse.access_token,
+          tokenResponse.expires_in,
+          isProduction
+        ),
       ];
 
       // Store refresh token if available
       if (tokenResponse.refresh_token) {
         cookies.push(
-          secureCookieString('azure_refresh_token', tokenResponse.refresh_token)
+          refreshTokenCookieString(
+            'azure_refresh_token',
+            tokenResponse.refresh_token,
+            isProduction
+          )
         );
       }
 
       // Store user info in regular cookies
       if (userInfo.displayName) {
         cookies.push(
-          regularCookieString('azure_user_name', userInfo.displayName)
+          regularCookieString(
+            'azure_user_name',
+            userInfo.displayName,
+            tokenResponse.expires_in,
+            isProduction
+          )
         );
       }
       if (userInfo.mail || userInfo.userPrincipalName) {
         cookies.push(
           regularCookieString(
             'azure_user_email',
-            userInfo.mail || userInfo.userPrincipalName
+            userInfo.mail || userInfo.userPrincipalName,
+            tokenResponse.expires_in,
+            isProduction
           )
         );
       }
