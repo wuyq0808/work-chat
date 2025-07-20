@@ -19,3 +19,8 @@
   - `ANTHROPIC_API_KEY` - for Claude models
   - `API_KEY` - for authenticating requests to our server
   - Various OAuth tokens may be available in cookies during testing
+
+## Linting Guidelines
+- Run `npm run lint:fix` to automatically fix formatting and address linting issues
+- All remaining `any` types have been documented with eslint-disable comments and reasons
+- Non-null assertions are documented where they are safe to use

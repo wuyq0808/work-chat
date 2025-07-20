@@ -17,7 +17,8 @@ const chatGemini = new ChatGoogleGenerativeAI({
 });
 
 async function processResponseWithTools(
-  response: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  response: any, // LangChain response type is complex and varies by model
   tools: StructuredTool[],
   originalInput: string
 ): Promise<string> {

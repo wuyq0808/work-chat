@@ -33,7 +33,8 @@ export function verifyBearerToken(req: Request): string {
 
 export function getSlackTokenFromCookie(req: Request): string {
   // Get from HttpOnly cookie using cookie-parser
-  const cookies = (req as any).cookies || {};
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
 
   if (!cookies.slack_token) {
     throw new AuthError('Slack token required in cookie', 401);
@@ -44,7 +45,8 @@ export function getSlackTokenFromCookie(req: Request): string {
 
 export function getAzureTokenFromCookie(req: Request): string {
   // Get from HttpOnly cookie using cookie-parser
-  const cookies = (req as any).cookies || {};
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
 
   if (!cookies.azure_token) {
     throw new AuthError('Azure token required in cookie', 401);
@@ -55,7 +57,8 @@ export function getAzureTokenFromCookie(req: Request): string {
 
 export function getAtlassianTokenFromCookie(req: Request): string {
   // Get from HttpOnly cookie using cookie-parser
-  const cookies = (req as any).cookies || {};
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
 
   if (!cookies.atlassian_token) {
     throw new AuthError('Atlassian token required in cookie', 401);

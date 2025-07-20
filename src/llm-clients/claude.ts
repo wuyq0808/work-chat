@@ -62,7 +62,8 @@ export async function callClaude(request: AIRequest): Promise<string> {
       max_tokens: 1024,
       messages: [{ role: 'user', content: request.input }],
       mcp_servers: mcpServers,
-    } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any); // MCP server configuration not yet typed in Anthropic SDK
 
     const output = response.content
       .filter((block): block is Anthropic.TextBlock => block.type === 'text')

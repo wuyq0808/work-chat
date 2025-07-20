@@ -60,9 +60,12 @@ export class AtlassianStreamableMCPServer {
           description: toolDef.description,
           inputSchema: toolDef.inputSchema,
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         async (args: any) => {
+          // MCP server handler args are dynamically typed
           const result = await executeTool(
-            this.tools!.getTools(),
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            this.tools!.getTools(), // tools is guaranteed to be initialized by registerTools check
             toolDef.name,
             args
           );

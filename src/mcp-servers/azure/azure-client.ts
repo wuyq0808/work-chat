@@ -102,13 +102,16 @@ export class AzureAPIClient {
 
       const response = await query.get();
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const messages: AzureMessage[] = response.value.map((msg: any) => ({
+        // Microsoft Graph API response format is complex
         id: msg.id,
         subject: msg.subject,
         body: msg.body?.content || '',
         from: msg.from?.emailAddress?.address || '',
         toRecipients:
-          msg.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          msg.toRecipients?.map((r: any) => r.emailAddress?.address) || [], // Graph API recipient structure varies
         receivedDateTime: msg.receivedDateTime,
         importance: msg.importance,
         isRead: msg.isRead,
@@ -147,7 +150,9 @@ export class AzureAPIClient {
 
       const response = await query.get();
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const events: AzureCalendarEvent[] = response.value.map((event: any) => ({
+        // Microsoft Graph API event format is complex
         id: event.id,
         subject: event.subject,
         body: event.body?.content || '',
@@ -155,7 +160,8 @@ export class AzureAPIClient {
         end: event.end?.dateTime,
         location: event.location?.displayName || '',
         attendees:
-          event.attendees?.map((a: any) => a.emailAddress?.address) || [],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          event.attendees?.map((a: any) => a.emailAddress?.address) || [], // Graph API attendee structure varies
         organizer: event.organizer?.emailAddress?.address || '',
         importance: event.importance,
       }));

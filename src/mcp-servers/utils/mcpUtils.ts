@@ -12,7 +12,8 @@ export interface ToolResponse {
 export interface ToolDefinition {
   name: string;
   description: string;
-  inputSchema: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  inputSchema: any; // Zod schema shapes vary and are complex to type precisely
 }
 
 /**
@@ -41,7 +42,8 @@ export function getToolDefinitions(tools: StructuredTool[]): ToolDefinition[] {
 export async function executeTool(
   tools: StructuredTool[],
   name: string,
-  args: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  args: any // Tool arguments vary by tool and are validated by Zod schemas
 ): Promise<ToolResponse> {
   try {
     const tool = tools.find(t => t.name === name);

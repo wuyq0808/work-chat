@@ -2,6 +2,24 @@ import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AtlassianAPIClient } from './atlassian-client.js';
 
+interface SearchJiraIssuesArgs {
+  jql: string;
+  maxResults?: number;
+}
+
+interface SearchConfluencePagesArgs {
+  query?: string;
+  cql?: string;
+  space?: string;
+  type?: string;
+  maxResults?: number;
+}
+
+interface SearchConfluenceSpacesArgs {
+  query: string;
+  maxResults?: number;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -104,9 +122,12 @@ export class AtlassianTools {
   // Helper to format ToolResponse as string for LangChain
   private formatToolResponse(response: ToolResponse): string {
     if (response.content && Array.isArray(response.content)) {
-      return response.content
-        .map((item: any) => item.text || JSON.stringify(item))
-        .join('\n');
+      return (
+        response.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((item: any) => item.text || JSON.stringify(item)) // ToolResponse content format can vary
+          .join('\n')
+      );
     }
     return JSON.stringify(response);
   }
@@ -116,11 +137,10 @@ export class AtlassianTools {
     return this.tools;
   }
 
-  private async handleSearchJiraIssues(args: any): Promise<ToolResponse> {
-    const { jql, maxResults = 10 } = args as {
-      jql: string;
-      maxResults?: number;
-    };
+  private async handleSearchJiraIssues(
+    args: SearchJiraIssuesArgs
+  ): Promise<ToolResponse> {
+    const { jql, maxResults = 10 } = args;
 
     const searchResult = await this.atlassianClient.searchJiraIssues(
       jql,
@@ -167,20 +187,10 @@ export class AtlassianTools {
     }
   }
 
-  private async handleSearchConfluencePages(args: any): Promise<ToolResponse> {
-    const {
-      query,
-      cql,
-      space,
-      type,
-      maxResults = 10,
-    } = args as {
-      query?: string;
-      cql?: string;
-      space?: string;
-      type?: string;
-      maxResults?: number;
-    };
+  private async handleSearchConfluencePages(
+    args: SearchConfluencePagesArgs
+  ): Promise<ToolResponse> {
+    const { query, cql, space, type, maxResults = 10 } = args;
 
     const searchResult = await this.atlassianClient.searchConfluenceContent(
       { query, cql, space, type },
@@ -240,11 +250,10 @@ export class AtlassianTools {
     }
   }
 
-  private async handleSearchConfluenceSpaces(args: any): Promise<ToolResponse> {
-    const { query, maxResults = 10 } = args as {
-      query: string;
-      maxResults?: number;
-    };
+  private async handleSearchConfluenceSpaces(
+    args: SearchConfluenceSpacesArgs
+  ): Promise<ToolResponse> {
+    const { query, maxResults = 10 } = args;
 
     const searchResult = await this.atlassianClient.searchConfluenceSpaces(
       query,

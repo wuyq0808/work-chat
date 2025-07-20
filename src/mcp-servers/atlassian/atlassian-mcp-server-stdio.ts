@@ -49,7 +49,7 @@ export class AtlassianMCPStdioServer {
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(this.tools.getTools(), name, args);
+      return await executeTool(this.tools.getTools(), name, args || {});
     });
   }
 

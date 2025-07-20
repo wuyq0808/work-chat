@@ -2,6 +2,29 @@ import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { SlackAPIClient } from './slack-client.js';
 
+interface ConversationsHistoryArgs {
+  channel_id: string;
+  limit?: number;
+}
+
+interface ChannelsListArgs {
+  cursor?: string;
+  limit?: number;
+}
+
+interface ConversationsRepliesArgs {
+  channel_id: string;
+  thread_ts: string;
+  limit?: number;
+}
+
+interface SearchMessagesArgs {
+  query: string;
+  count?: number;
+  sort?: 'score' | 'timestamp';
+  sort_dir?: 'asc' | 'desc';
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -109,7 +132,7 @@ export class SlackTools {
   private formatToolResponse(response: ToolResponse): string {
     if (response.content && Array.isArray(response.content)) {
       return response.content
-        .map((item: any) => item.text || JSON.stringify(item))
+        .map((item: { text?: string }) => item.text || JSON.stringify(item))
         .join('\n');
     }
     return JSON.stringify(response);
@@ -120,11 +143,10 @@ export class SlackTools {
     return this.tools;
   }
 
-  private async handleConversationsHistory(args: any): Promise<ToolResponse> {
-    const { channel_id, limit = 10 } = args as {
-      channel_id: string;
-      limit?: number;
-    };
+  private async handleConversationsHistory(
+    args: ConversationsHistoryArgs
+  ): Promise<ToolResponse> {
+    const { channel_id, limit = 10 } = args;
 
     if (!channel_id || typeof channel_id !== 'string') {
       return {
@@ -147,7 +169,9 @@ export class SlackTools {
 
     if (historyResult.success && historyResult.data) {
       let content = 'userName,text,time\n';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       historyResult.data.forEach((msg: any) => {
+        // Slack API message format is complex and dynamic
         content += `${msg.userName},${msg.text.replace(/\n/g, ' ')},${msg.time}\n`;
       });
 
@@ -172,17 +196,18 @@ export class SlackTools {
     }
   }
 
-  private async handleChannelsList(args: any): Promise<ToolResponse> {
-    const { cursor, limit } = args as {
-      cursor?: string;
-      limit?: number;
-    };
+  private async handleChannelsList(
+    args: ChannelsListArgs
+  ): Promise<ToolResponse> {
+    const { cursor, limit } = args;
 
     const channelsResult = await this.slackClient.getChannels(cursor, limit);
 
     if (channelsResult.success && channelsResult.data) {
       let content = 'id,name,is_private,is_member\n';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       channelsResult.data.forEach((channel: any) => {
+        // Slack API channel format varies by subscription type
         content += `${channel.id},${channel.name || 'unnamed'},${channel.is_private || false},${channel.is_member || false}\n`;
       });
 
@@ -208,16 +233,10 @@ export class SlackTools {
     }
   }
 
-  private async handleConversationsReplies(args: any): Promise<ToolResponse> {
-    const {
-      channel_id,
-      thread_ts,
-      limit = 10,
-    } = args as {
-      channel_id: string;
-      thread_ts: string;
-      limit?: number;
-    };
+  private async handleConversationsReplies(
+    args: ConversationsRepliesArgs
+  ): Promise<ToolResponse> {
+    const { channel_id, thread_ts, limit = 10 } = args;
 
     if (!channel_id || typeof channel_id !== 'string') {
       return {
@@ -253,7 +272,9 @@ export class SlackTools {
 
     if (repliesResult.success && repliesResult.data) {
       let content = 'userName,text,time,thread_ts\n';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       repliesResult.data.forEach((msg: any) => {
+        // Slack API message format is complex and dynamic
         content += `${msg.userName},${msg.text.replace(/\n/g, ' ')},${msg.time},${msg.thread_ts || ''}\n`;
       });
 
@@ -278,18 +299,10 @@ export class SlackTools {
     }
   }
 
-  private async handleSearchMessages(args: any): Promise<ToolResponse> {
-    const {
-      query,
-      count = 20,
-      sort = 'timestamp',
-      sort_dir = 'desc',
-    } = args as {
-      query: string;
-      count?: number;
-      sort?: 'score' | 'timestamp';
-      sort_dir?: 'asc' | 'desc';
-    };
+  private async handleSearchMessages(
+    args: SearchMessagesArgs
+  ): Promise<ToolResponse> {
+    const { query, count = 20, sort = 'timestamp', sort_dir = 'desc' } = args;
 
     await this.slackClient.getChannels();
 
@@ -302,7 +315,9 @@ export class SlackTools {
 
     if (searchResult.success && searchResult.data) {
       let content = 'userName,text,time,channel\n';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       searchResult.data.forEach((msg: any) => {
+        // Slack search API returns dynamic message formats
         const channelInfo = this.slackClient?.getChannelInfo(msg.channel);
         const channelName = channelInfo?.name || msg.channel;
         content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName}\n`;

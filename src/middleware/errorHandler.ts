@@ -24,7 +24,8 @@ export function errorHandler(
 }
 
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<any> // Express handler return types vary
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);

@@ -2,6 +2,18 @@ import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AzureAPIClient } from './azure-client.js';
 
+interface GetMessagesArgs {
+  limit?: number;
+  filter?: string;
+  search?: string;
+}
+
+interface GetCalendarEventsArgs {
+  limit?: number;
+  start_time?: string;
+  end_time?: string;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -81,9 +93,12 @@ export class AzureTools {
   // Helper to format ToolResponse as string for LangChain
   private formatToolResponse(response: ToolResponse): string {
     if (response.content && Array.isArray(response.content)) {
-      return response.content
-        .map((item: any) => item.text || JSON.stringify(item))
-        .join('\n');
+      return (
+        response.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((item: any) => item.text || JSON.stringify(item)) // ToolResponse content format can vary
+          .join('\n')
+      );
     }
     return JSON.stringify(response);
   }
@@ -123,16 +138,10 @@ export class AzureTools {
     }
   }
 
-  private async handleGetMessages(args: any): Promise<ToolResponse> {
-    const {
-      limit = 10,
-      filter,
-      search,
-    } = args as {
-      limit?: number;
-      filter?: string;
-      search?: string;
-    };
+  private async handleGetMessages(
+    args: GetMessagesArgs
+  ): Promise<ToolResponse> {
+    const { limit = 10, filter, search } = args;
 
     const messagesResult = await this.azureClient.getMessages({
       limit,
@@ -168,16 +177,10 @@ export class AzureTools {
     }
   }
 
-  private async handleGetCalendarEvents(args: any): Promise<ToolResponse> {
-    const {
-      limit = 10,
-      start_time,
-      end_time,
-    } = args as {
-      limit?: number;
-      start_time?: string;
-      end_time?: string;
-    };
+  private async handleGetCalendarEvents(
+    args: GetCalendarEventsArgs
+  ): Promise<ToolResponse> {
+    const { limit = 10, start_time, end_time } = args;
 
     const eventsResult = await this.azureClient.getCalendarEvents({
       limit,
