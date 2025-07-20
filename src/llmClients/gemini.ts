@@ -1,277 +1,151 @@
-import { GoogleGenAI } from '@google/genai';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { AzureMCPStdioServer } from '../mcp-servers/azure/azure-mcp-server-stdio.js';
-import { SlackMCPStdioServer } from '../mcp-servers/slack/slack-mcp-server-stdio.js';
-import { AtlassianMCPStdioServer } from '../mcp-servers/atlassian/atlassian-mcp-server-stdio.js';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { SlackMCPClient } from '../mcp-servers/slack/slack-client.js';
+import { SlackToolHandlers } from '../mcp-servers/slack/slack-tools.js';
+import { AzureMCPClient } from '../mcp-servers/azure/azure-client.js';
+import { AzureToolHandlers } from '../mcp-servers/azure/azure-tools.js';
+import { AtlassianMCPClient } from '../mcp-servers/atlassian/atlassian-client.js';
+import { AtlassianToolHandlers } from '../mcp-servers/atlassian/atlassian-tools.js';
 import type { AIRequest } from '../services/llmService.js';
 
-const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const chatGemini = new ChatGoogleGenerativeAI({
+  model: 'gemini-2.5-flash',
+  temperature: 0.7,
+  maxOutputTokens: 4096,
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+async function processResponseWithTools(
+  response: any,
+  tools: DynamicStructuredTool[],
+  originalInput: string
+): Promise<string> {
+  // Check if the response has tool calls
+  if (response.tool_calls && response.tool_calls.length > 0) {
+
+    const toolMessages: ToolMessage[] = [];
+
+    // Execute each tool call
+    for (const toolCall of response.tool_calls) {
+      const tool = tools.find(t => t.name === toolCall.name);
+
+      if (tool) {
+        try {
+          const result = await tool.invoke(toolCall.args);
+
+          toolMessages.push(
+            new ToolMessage({
+              content: result,
+              tool_call_id: toolCall.id,
+            })
+          );
+        } catch (error) {
+          toolMessages.push(
+            new ToolMessage({
+              content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              tool_call_id: toolCall.id,
+            })
+          );
+        }
+      } else {
+        toolMessages.push(
+          new ToolMessage({
+            content: `Error: Tool ${toolCall.name} not found`,
+            tool_call_id: toolCall.id,
+          })
+        );
+      }
+    }
+
+    // Create a summary of tool results for the final response
+    const toolResultsSummary = toolMessages
+      .map(msg => `Tool result: ${msg.content}`)
+      .join('\n\n');
+
+    const finalPrompt = `${originalInput}\n\nI've executed the following tools for you:\n${toolResultsSummary}\n\nPlease provide a comprehensive response based on the tool results.`;
+    const finalResponse = await chatGemini.invoke([
+      new HumanMessage(finalPrompt),
+    ]);
+    return typeof finalResponse.content === 'string'
+      ? finalResponse.content
+      : JSON.stringify(finalResponse.content);
+  }
+
+  // No tool calls, return regular response
+  return typeof response.content === 'string'
+    ? response.content
+    : JSON.stringify(response.content);
+}
 
 export async function callGemini(request: AIRequest): Promise<string> {
   try {
-    // Connect to all available services and collect their tools
-    const connectedClients: { client: any; service: string }[] = [];
+    const allTools = [];
 
     // Try Slack
     if (request.slackToken) {
       try {
-        const slackServer = new SlackMCPStdioServer({
+        const slackClient = new SlackMCPClient({
           userToken: request.slackToken,
         });
-        const [clientTransport, serverTransport] =
-          InMemoryTransport.createLinkedPair();
-        await slackServer.getServer().connect(serverTransport);
+        const slackToolHandlers = new SlackToolHandlers(slackClient);
+        const slackTools = slackToolHandlers.getTools();
 
-        const slackClient = new Client(
-          { name: 'gemini-slack-client', version: '1.0.0' },
-          { capabilities: {} }
-        );
-
-        await slackClient.connect(clientTransport);
-
-        const tools = await slackClient.listTools();
-
-        if (tools.tools && tools.tools.length > 0) {
-          connectedClients.push({ client: slackClient, service: 'Slack' });
-        }
+        allTools.push(...slackTools);
       } catch (error) {
-        console.error('Failed to connect to Slack MCP server:', error);
+        console.error('Failed to create Slack tools:', error);
       }
     }
 
     // Try Azure
     if (request.azureToken) {
       try {
-        const azureServer = new AzureMCPStdioServer(request.azureToken);
-        const [clientTransport, serverTransport] =
-          InMemoryTransport.createLinkedPair();
-        await azureServer.getServer().connect(serverTransport);
+        const azureClient = new AzureMCPClient({
+          accessToken: request.azureToken,
+        });
+        const azureToolHandlers = new AzureToolHandlers(azureClient);
+        const azureTools = azureToolHandlers.getTools();
 
-        const azureClient = new Client(
-          { name: 'gemini-azure-client', version: '1.0.0' },
-          { capabilities: {} }
-        );
-
-        await azureClient.connect(clientTransport);
-
-        const tools = await azureClient.listTools();
-
-        if (tools.tools && tools.tools.length > 0) {
-          connectedClients.push({ client: azureClient, service: 'Azure' });
-        }
+        allTools.push(...azureTools);
       } catch (error) {
-        console.error('Failed to connect to Azure MCP server:', error);
+        console.error('Failed to create Azure tools:', error);
       }
     }
 
     // Try Atlassian
     if (request.atlassianToken) {
       try {
-        const atlassianServer = new AtlassianMCPStdioServer({
+        const atlassianClient = new AtlassianMCPClient({
           accessToken: request.atlassianToken,
         });
-        const [clientTransport, serverTransport] =
-          InMemoryTransport.createLinkedPair();
-        await atlassianServer.getServer().connect(serverTransport);
-
-        const atlassianClient = new Client(
-          { name: 'gemini-atlassian-client', version: '1.0.0' },
-          { capabilities: {} }
+        const atlassianToolHandlers = new AtlassianToolHandlers(
+          atlassianClient
         );
+        const atlassianTools = atlassianToolHandlers.getTools();
 
-        await atlassianClient.connect(clientTransport);
-
-        const tools = await atlassianClient.listTools();
-
-        if (tools.tools && tools.tools.length > 0) {
-          connectedClients.push({
-            client: atlassianClient,
-            service: 'Atlassian',
-          });
-        }
+        allTools.push(...atlassianTools);
       } catch (error) {
-        console.error('Failed to connect to Atlassian MCP server:', error);
+        console.error('Failed to create Atlassian tools:', error);
       }
     }
 
-    // Create tools array by combining all connected clients
-    const tools = [];
 
-    if (connectedClients.length > 0) {
-      try {
-        // Collect all function declarations from all clients
-        const allFunctionDeclarations = [];
-
-        for (const { client, service } of connectedClients) {
-          const mcpTools = await client.listTools();
-
-          if (mcpTools.tools && mcpTools.tools.length > 0) {
-            // Convert MCP tools to Gemini function declarations format
-            const functionDeclarations = mcpTools.tools.map((tool: any) => ({
-              name: tool.name,
-              description: `[${service}] ${tool.description}`, // Add service prefix to description
-              parameters: tool.inputSchema || {
-                type: 'object',
-                properties: {},
-              },
-            }));
-
-            allFunctionDeclarations.push(...functionDeclarations);
-          }
-        }
-
-        if (allFunctionDeclarations.length > 0) {
-          // Create a single tool object with all function declarations
-          tools.push({
-            functionDeclarations: allFunctionDeclarations,
-          });
-        }
-      } catch (error) {
-        console.error('Error converting MCP tools to Gemini format:', error);
-      }
+    // If no tools loaded or tools cause issues, use without tools
+    if (allTools.length === 0) {
+      const response = await chatGemini.invoke(request.input);
+      return typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
     }
 
-    const config: any = {
-      maxOutputTokens: 4096,
-      temperature: 0.7,
-    };
+    // Use LangChain ChatGoogleGenerativeAI with tools
+    const response = await chatGemini.invoke(
+      [new HumanMessage(request.input)],
+      { tools: allTools }
+    );
 
-    // Add tools to config if available
-    if (tools.length > 0) {
-      config.tools = tools;
-    }
-
-    let response = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: request.input }] }],
-      config,
-    });
-
-    // Handle function calls if present and execute them
-    let toolResults = [];
-    if (
-      response.candidates &&
-      response.candidates[0] &&
-      response.candidates[0].content
-    ) {
-      const parts = response.candidates[0].content.parts || [];
-      const functionCalls = parts.filter(part => part.functionCall);
-
-      if (functionCalls.length > 0) {
-        for (const part of functionCalls) {
-          if (part.functionCall && connectedClients.length > 0) {
-            // Find which client has this tool
-            let toolClient = null;
-
-            for (const { client, service } of connectedClients) {
-              try {
-                const mcpTools = await client.listTools();
-                if (
-                  mcpTools.tools?.some(
-                    (tool: any) => tool.name === part.functionCall?.name
-                  )
-                ) {
-                  toolClient = client;
-                  break;
-                }
-              } catch (error) {
-                console.error(`Error checking tools for ${service}:`, error);
-              }
-            }
-
-            if (toolClient) {
-              try {
-                // Execute the tool via the appropriate MCP client
-                const result = await toolClient.callTool({
-                  name: part.functionCall.name || '',
-                  arguments: part.functionCall.args || {},
-                });
-
-                // Store the tool result for the follow-up request
-                toolResults.push({
-                  functionCall: part.functionCall,
-                  functionResponse: {
-                    name: part.functionCall.name,
-                    response: result,
-                  },
-                });
-              } catch (error) {
-                toolResults.push({
-                  functionCall: part.functionCall,
-                  functionResponse: {
-                    name: part.functionCall.name,
-                    response: {
-                      error:
-                        error instanceof Error
-                          ? error.message
-                          : 'Unknown error',
-                    },
-                  },
-                });
-              }
-            } else {
-              toolResults.push({
-                functionCall: part.functionCall,
-                functionResponse: {
-                  name: part.functionCall.name,
-                  response: { error: 'No client found for this tool' },
-                },
-              });
-            }
-          }
-        }
-
-        // If we have tool results, make a follow-up request to Gemini with the results
-        if (toolResults.length > 0) {
-          // Create a conversation with the original message, function calls, and results
-          const conversationHistory = [
-            { role: 'user', parts: [{ text: request.input }] },
-            {
-              role: 'model',
-              parts: response.candidates[0].content.parts,
-            },
-            {
-              role: 'user',
-              parts: toolResults.map(tr => ({
-                functionResponse: tr.functionResponse,
-              })),
-            },
-          ];
-
-          response = await gemini.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: conversationHistory,
-            config: {
-              maxOutputTokens: 4096,
-              temperature: 0.7,
-            }, // Don't include tools in follow-up to avoid infinite loops
-          });
-        }
-      }
-    }
-
-    // Extract text content from response
-    let output = '';
-    if (
-      response.candidates &&
-      response.candidates[0] &&
-      response.candidates[0].content
-    ) {
-      const parts = response.candidates[0].content.parts || [];
-      for (const part of parts) {
-        if (part.text && part.text.trim()) {
-          output += part.text;
-        }
-      }
-    }
-
-    // Fallback to response.text if candidates structure is not available
-    if (!output && response.text && response.text.trim()) {
-      output = response.text;
-    }
-
-    return output || 'No response generated';
+    // Handle the response which may contain tool calls
+    return await processResponseWithTools(response, allTools, request.input);
   } catch (error) {
     return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
   }

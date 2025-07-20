@@ -129,7 +129,11 @@ export class SlackMCPClient {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
-      if (params.channel.startsWith('#')) {
+      if (
+        params.channel &&
+        typeof params.channel === 'string' &&
+        params.channel.startsWith('#')
+      ) {
         const channelName = params.channel.substring(1);
         const channel = Array.from(this.channelsCache.values()).find(
           c => c.name === channelName
@@ -205,7 +209,11 @@ export class SlackMCPClient {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
-      if (params.channel.startsWith('#')) {
+      if (
+        params.channel &&
+        typeof params.channel === 'string' &&
+        params.channel.startsWith('#')
+      ) {
         const channelName = params.channel.substring(1);
         const channel = Array.from(this.channelsCache.values()).find(
           c => c.name === channelName

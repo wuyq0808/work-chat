@@ -1,0 +1,21 @@
+# Claude Development Notes
+
+## Testing Guidelines
+
+### DO NOT start the server automatically after making changes
+- When I make code changes, DO NOT run `npm start` or try to start the server
+- Instead, tell me the changes are ready for testing
+- Wait for me to start the server manually
+
+### Testing Process
+- After making changes, run `npm run build` to compile
+- Let me know the build is complete and ready for testing
+- I will start the server when ready
+
+### Environment Tokens
+- Check the .env file for available tokens:
+  - `OPENAI_API_KEY` - for OpenAI/GPT models
+  - `GEMINI_API_KEY` - for Google Gemini models  
+  - `ANTHROPIC_API_KEY` - for Claude models
+  - `API_KEY` - for authenticating requests to our server
+  - Various OAuth tokens may be available in cookies during testing
