@@ -67,7 +67,8 @@ For Slack and Email specifically:
 - Prioritize newer messages over older ones
 
 ## RESPONSE FORMAT
-- Provide SUMMARIES, not full lists of results
+- Provide summary if the found items are repetitive, otherwise it's ok to display individual items
+- Aim for more than 10 pieces of information
 - Keep responses concise and focused on the most important information
 
 ## QUALITY ASSURANCE
