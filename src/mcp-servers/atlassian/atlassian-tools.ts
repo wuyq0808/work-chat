@@ -1,4 +1,5 @@
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { tool, StructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
 import { AtlassianMCPClient } from './atlassian-client.js';
 
 export interface ToolResponse {
@@ -12,7 +13,7 @@ export interface ToolResponse {
 
 export class AtlassianToolHandlers {
   private atlassianClient: AtlassianMCPClient;
-  private tools: DynamicStructuredTool[];
+  private tools: StructuredTool[];
 
   constructor(atlassianClient: AtlassianMCPClient) {
     this.atlassianClient = atlassianClient;
@@ -20,99 +21,83 @@ export class AtlassianToolHandlers {
   }
 
   // Create DynamicStructuredTool instances
-  private createTools(): DynamicStructuredTool[] {
+  private createTools(): StructuredTool[] {
     return [
-      new DynamicStructuredTool({
-        name: 'atlassian__search_jira_issues',
-        description: 'Search for Jira issues using JQL (Jira Query Language)',
-        schema: {
-          type: 'object',
-          properties: {
-            jql: {
-              type: 'string',
-              description:
-                'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")',
-            },
-            maxResults: {
-              type: 'number',
-              description: 'Maximum number of results to return (default: 10)',
-              optional: true,
-            },
-          },
-          required: ['jql'],
-        },
-        func: async input =>
+      tool(
+        async input =>
           this.formatToolResponse(await this.handleSearchJiraIssues(input)),
-      }) as DynamicStructuredTool,
+        {
+          name: 'atlassian__search_jira_issues',
+          description: 'Search for Jira issues using JQL (Jira Query Language)',
+          schema: z.object({
+            jql: z
+              .string()
+              .describe(
+                'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")'
+              ),
+            maxResults: z
+              .number()
+              .optional()
+              .describe('Maximum number of results to return (default: 10)'),
+          }),
+        }
+      ),
 
-      new DynamicStructuredTool({
-        name: 'atlassian__search_confluence_pages',
-        description:
-          'Search for Confluence pages using CQL (Confluence Query Language)',
-        schema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description:
-                'Search query for page titles or content (simple text search)',
-              optional: true,
-            },
-            cql: {
-              type: 'string',
-              description:
-                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \\"search term\\""))',
-              optional: true,
-            },
-            space: {
-              type: 'string',
-              description:
-                'Filter results to specific space key (e.g., "PROJ")',
-              optional: true,
-            },
-            type: {
-              type: 'string',
-              enum: ['page', 'blogpost', 'attachment'],
-              description: 'Content type filter',
-              optional: true,
-            },
-            maxResults: {
-              type: 'number',
-              description: 'Maximum number of results to return (default: 10)',
-              optional: true,
-            },
-          },
-          required: [],
-        },
-        func: async input =>
+      tool(
+        async input =>
           this.formatToolResponse(
             await this.handleSearchConfluencePages(input)
           ),
-      }) as DynamicStructuredTool,
+        {
+          name: 'atlassian__search_confluence_pages',
+          description:
+            'Search for Confluence pages using CQL (Confluence Query Language)',
+          schema: z.object({
+            query: z
+              .string()
+              .optional()
+              .describe(
+                'Search query for page titles or content (simple text search)'
+              ),
+            cql: z
+              .string()
+              .optional()
+              .describe(
+                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \\"search term\\""))'
+              ),
+            space: z
+              .string()
+              .optional()
+              .describe('Filter results to specific space key (e.g., "PROJ")'),
+            type: z
+              .enum(['page', 'blogpost', 'attachment'])
+              .optional()
+              .describe('Content type filter'),
+            maxResults: z
+              .number()
+              .optional()
+              .describe('Maximum number of results to return (default: 10)'),
+          }),
+        }
+      ),
 
-      new DynamicStructuredTool({
-        name: 'atlassian__search_confluence_spaces',
-        description: 'Search for Confluence spaces',
-        schema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'Search query for space names or keys',
-            },
-            maxResults: {
-              type: 'number',
-              description: 'Maximum number of results to return (default: 10)',
-              optional: true,
-            },
-          },
-          required: ['query'],
-        },
-        func: async input =>
+      tool(
+        async input =>
           this.formatToolResponse(
             await this.handleSearchConfluenceSpaces(input)
           ),
-      }) as DynamicStructuredTool,
+        {
+          name: 'atlassian__search_confluence_spaces',
+          description: 'Search for Confluence spaces',
+          schema: z.object({
+            query: z.string().describe('Search query for space names or keys'),
+            maxResults: z
+              .number()
+              .optional()
+              .describe('Maximum number of results to return (default: 10)'),
+          }),
+        }
+      ),
     ];
   }
 
@@ -127,7 +112,7 @@ export class AtlassianToolHandlers {
   }
 
   // Get LangChain-compatible tools
-  getTools(): DynamicStructuredTool[] {
+  getTools(): StructuredTool[] {
     return this.tools;
   }
 
@@ -157,7 +142,7 @@ export class AtlassianToolHandlers {
       }
 
       // Execute the tool and get the string result
-      const result = await tool.func(args);
+      const result = await tool.invoke(args);
 
       // Convert string result back to ToolResponse format for MCP
       return {

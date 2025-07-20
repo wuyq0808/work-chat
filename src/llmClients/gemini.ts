@@ -1,6 +1,6 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { HumanMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { HumanMessage, ToolMessage } from '@langchain/core/messages';
+import { StructuredTool } from '@langchain/core/tools';
 import { SlackMCPClient } from '../mcp-servers/slack/slack-client.js';
 import { SlackToolHandlers } from '../mcp-servers/slack/slack-tools.js';
 import { AzureMCPClient } from '../mcp-servers/azure/azure-client.js';
@@ -18,12 +18,11 @@ const chatGemini = new ChatGoogleGenerativeAI({
 
 async function processResponseWithTools(
   response: any,
-  tools: DynamicStructuredTool[],
+  tools: StructuredTool[],
   originalInput: string
 ): Promise<string> {
   // Check if the response has tool calls
   if (response.tool_calls && response.tool_calls.length > 0) {
-
     const toolMessages: ToolMessage[] = [];
 
     // Execute each tool call
@@ -128,7 +127,6 @@ export async function callGemini(request: AIRequest): Promise<string> {
         console.error('Failed to create Atlassian tools:', error);
       }
     }
-
 
     // If no tools loaded or tools cause issues, use without tools
     if (allTools.length === 0) {
