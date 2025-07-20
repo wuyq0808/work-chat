@@ -4,23 +4,23 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
-  AtlassianMCPClient,
+  AtlassianAPIClient,
   type AtlassianConfig,
 } from './atlassian-client.js';
-import { AtlassianToolHandlers } from './atlassian-tools.js';
+import { AtlassianTools } from './atlassian-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AtlassianMCPStdioServer {
-  private atlassianClient: AtlassianMCPClient;
+  private atlassianClient: AtlassianAPIClient;
   private server: Server;
-  private toolHandlers: AtlassianToolHandlers;
+  private tools: AtlassianTools;
 
   constructor(config: AtlassianConfig) {
     // Initialize Atlassian client
-    this.atlassianClient = new AtlassianMCPClient(config);
+    this.atlassianClient = new AtlassianAPIClient(config);
 
     // Initialize tool handlers
-    this.toolHandlers = new AtlassianToolHandlers(this.atlassianClient);
+    this.tools = new AtlassianTools(this.atlassianClient);
 
     // Create the MCP server
     this.server = new Server(
@@ -42,14 +42,14 @@ export class AtlassianMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: getToolDefinitions(this.toolHandlers.getTools()),
+        tools: getToolDefinitions(this.tools.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(this.toolHandlers.getTools(), name, args);
+      return await executeTool(this.tools.getTools(), name, args);
     });
   }
 

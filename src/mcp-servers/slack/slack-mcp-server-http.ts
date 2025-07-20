@@ -1,24 +1,24 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { SlackMCPClient, type SlackConfig } from './slack-client.js';
-import { SlackToolHandlers } from './slack-tools.js';
+import { SlackAPIClient, type SlackConfig } from './slack-client.js';
+import { SlackTools } from './slack-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class SlackStreamableMCPServer {
-  private slackClient: SlackMCPClient | null = null;
-  private toolHandlers: SlackToolHandlers | null = null;
+  private slackClient: SlackAPIClient | null = null;
+  private tools: SlackTools | null = null;
 
   constructor() {}
 
   // Initialize the Slack client with tokens
   initializeSlackClient(config: SlackConfig): void {
-    this.slackClient = new SlackMCPClient(config);
-    this.toolHandlers = new SlackToolHandlers(this.slackClient);
+    this.slackClient = new SlackAPIClient(config);
+    this.tools = new SlackTools(this.slackClient);
   }
 
   // Create the MCP server instance
   createServer(): McpServer {
-    if (!this.toolHandlers) {
+    if (!this.tools) {
       throw new Error(
         'Slack client not initialized. Call initializeSlackClient() first.'
       );
@@ -44,11 +44,11 @@ export class SlackStreamableMCPServer {
 
   // Register all Slack tools with a streamable MCP server
   private registerTools(server: McpServer): void {
-    if (!this.toolHandlers) {
-      throw new Error('Tool handlers not initialized');
+    if (!this.tools) {
+      throw new Error('Tools not initialized');
     }
 
-    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
+    const toolDefinitions = getToolDefinitions(this.tools.getTools());
 
     for (const toolDef of toolDefinitions) {
       server.registerTool(
@@ -59,7 +59,7 @@ export class SlackStreamableMCPServer {
         },
         async (args: any) => {
           const result = await executeTool(
-            this.toolHandlers!.getTools(),
+            this.tools!.getTools(),
             toolDef.name,
             args
           );

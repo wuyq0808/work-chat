@@ -1,27 +1,27 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
-  AtlassianMCPClient,
+  AtlassianAPIClient,
   type AtlassianConfig,
 } from './atlassian-client.js';
-import { AtlassianToolHandlers } from './atlassian-tools.js';
+import { AtlassianTools } from './atlassian-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AtlassianStreamableMCPServer {
-  private atlassianClient: AtlassianMCPClient | null = null;
-  private toolHandlers: AtlassianToolHandlers | null = null;
+  private atlassianClient: AtlassianAPIClient | null = null;
+  private tools: AtlassianTools | null = null;
 
   constructor() {}
 
   // Initialize the Atlassian client with access token
   initializeAtlassianClient(config: AtlassianConfig): void {
-    this.atlassianClient = new AtlassianMCPClient(config);
-    this.toolHandlers = new AtlassianToolHandlers(this.atlassianClient);
+    this.atlassianClient = new AtlassianAPIClient(config);
+    this.tools = new AtlassianTools(this.atlassianClient);
   }
 
   // Create the MCP server instance
   createServer(): McpServer {
-    if (!this.toolHandlers) {
+    if (!this.tools) {
       throw new Error(
         'Atlassian client not initialized. Call initializeAtlassianClient() first.'
       );
@@ -47,11 +47,11 @@ export class AtlassianStreamableMCPServer {
 
   // Register all Atlassian tools with a streamable MCP server
   private registerTools(server: McpServer): void {
-    if (!this.toolHandlers) {
-      throw new Error('Tool handlers not initialized');
+    if (!this.tools) {
+      throw new Error('Tools not initialized');
     }
 
-    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
+    const toolDefinitions = getToolDefinitions(this.tools.getTools());
 
     for (const toolDef of toolDefinitions) {
       server.registerTool(
@@ -62,7 +62,7 @@ export class AtlassianStreamableMCPServer {
         },
         async (args: any) => {
           const result = await executeTool(
-            this.toolHandlers!.getTools(),
+            this.tools!.getTools(),
             toolDef.name,
             args
           );

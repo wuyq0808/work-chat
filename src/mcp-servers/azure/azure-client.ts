@@ -43,7 +43,7 @@ export interface AzureCalendarEvent {
   importance: string;
 }
 
-export class AzureMCPClient {
+export class AzureAPIClient {
   private client: Client;
   private config: AzureConfig;
 

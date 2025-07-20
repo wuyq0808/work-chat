@@ -87,7 +87,7 @@ export interface AtlassianResource {
   scopes: string[];
 }
 
-export class AtlassianMCPClient {
+export class AtlassianAPIClient {
   private accessToken: string;
   private cloudId: string | null = null;
 

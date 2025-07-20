@@ -1,6 +1,6 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { SlackMCPClient } from './slack-client.js';
+import { SlackAPIClient } from './slack-client.js';
 
 export interface ToolResponse {
   content: Array<{
@@ -11,11 +11,11 @@ export interface ToolResponse {
   [key: string]: unknown; // Index signature for MCP compatibility
 }
 
-export class SlackToolHandlers {
-  private slackClient: SlackMCPClient;
+export class SlackTools {
+  private slackClient: SlackAPIClient;
   private tools: StructuredTool[];
 
-  constructor(slackClient: SlackMCPClient) {
+  constructor(slackClient: SlackAPIClient) {
     this.slackClient = slackClient;
     this.tools = this.createTools();
   }

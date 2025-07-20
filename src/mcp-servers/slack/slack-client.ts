@@ -15,7 +15,7 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-export class SlackMCPClient {
+export class SlackAPIClient {
   private client: WebClient;
   private config: SlackConfig;
   private usersCache: Map<string, Member> = new Map();

@@ -3,23 +3,23 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { AzureMCPClient } from './azure-client.js';
-import { AzureToolHandlers } from './azure-tools.js';
+import { AzureAPIClient } from './azure-client.js';
+import { AzureTools } from './azure-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AzureMCPStdioServer {
-  private azureClient: AzureMCPClient;
+  private azureClient: AzureAPIClient;
   private server: Server;
-  private toolHandlers: AzureToolHandlers;
+  private tools: AzureTools;
 
   constructor(azureToken: string) {
     // Initialize Azure client
-    this.azureClient = new AzureMCPClient({
+    this.azureClient = new AzureAPIClient({
       accessToken: azureToken,
     });
 
     // Initialize tool handlers
-    this.toolHandlers = new AzureToolHandlers(this.azureClient);
+    this.tools = new AzureTools(this.azureClient);
 
     // Create the MCP server
     this.server = new Server(
@@ -41,14 +41,14 @@ export class AzureMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: getToolDefinitions(this.toolHandlers.getTools()),
+        tools: getToolDefinitions(this.tools.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(this.toolHandlers.getTools(), name, args);
+      return await executeTool(this.tools.getTools(), name, args);
     });
   }
 

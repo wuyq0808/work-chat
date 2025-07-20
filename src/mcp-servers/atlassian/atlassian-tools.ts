@@ -1,6 +1,6 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { AtlassianMCPClient } from './atlassian-client.js';
+import { AtlassianAPIClient } from './atlassian-client.js';
 
 export interface ToolResponse {
   content: Array<{
@@ -11,11 +11,11 @@ export interface ToolResponse {
   [key: string]: unknown; // Index signature for MCP compatibility
 }
 
-export class AtlassianToolHandlers {
-  private atlassianClient: AtlassianMCPClient;
+export class AtlassianTools {
+  private atlassianClient: AtlassianAPIClient;
   private tools: StructuredTool[];
 
-  constructor(atlassianClient: AtlassianMCPClient) {
+  constructor(atlassianClient: AtlassianAPIClient) {
     this.atlassianClient = atlassianClient;
     this.tools = this.createTools();
   }

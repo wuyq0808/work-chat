@@ -1,6 +1,6 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { AzureMCPClient } from './azure-client.js';
+import { AzureAPIClient } from './azure-client.js';
 
 export interface ToolResponse {
   content: Array<{
@@ -11,11 +11,11 @@ export interface ToolResponse {
   [key: string]: unknown; // Index signature for MCP compatibility
 }
 
-export class AzureToolHandlers {
-  private azureClient: AzureMCPClient;
+export class AzureTools {
+  private azureClient: AzureAPIClient;
   private tools: StructuredTool[];
 
-  constructor(azureClient: AzureMCPClient) {
+  constructor(azureClient: AzureAPIClient) {
     this.azureClient = azureClient;
     this.tools = this.createTools();
   }

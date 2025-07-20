@@ -1,12 +1,12 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, ToolMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
-import { SlackMCPClient } from '../mcp-servers/slack/slack-client.js';
-import { SlackToolHandlers } from '../mcp-servers/slack/slack-tools.js';
-import { AzureMCPClient } from '../mcp-servers/azure/azure-client.js';
-import { AzureToolHandlers } from '../mcp-servers/azure/azure-tools.js';
-import { AtlassianMCPClient } from '../mcp-servers/atlassian/atlassian-client.js';
-import { AtlassianToolHandlers } from '../mcp-servers/atlassian/atlassian-tools.js';
+import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
+import { SlackTools } from '../mcp-servers/slack/slack-tools.js';
+import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
+import { AzureTools } from '../mcp-servers/azure/azure-tools.js';
+import { AtlassianAPIClient } from '../mcp-servers/atlassian/atlassian-client.js';
+import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
 import type { AIRequest } from '../services/llmService.js';
 
 const chatGemini = new ChatGoogleGenerativeAI({
@@ -84,11 +84,11 @@ export async function callGemini(request: AIRequest): Promise<string> {
     // Try Slack
     if (request.slackToken) {
       try {
-        const slackClient = new SlackMCPClient({
+        const slackClient = new SlackAPIClient({
           userToken: request.slackToken,
         });
-        const slackToolHandlers = new SlackToolHandlers(slackClient);
-        const slackTools = slackToolHandlers.getTools();
+        const slackToolsInstance = new SlackTools(slackClient);
+        const slackTools = slackToolsInstance.getTools();
 
         allTools.push(...slackTools);
       } catch (error) {
@@ -99,11 +99,11 @@ export async function callGemini(request: AIRequest): Promise<string> {
     // Try Azure
     if (request.azureToken) {
       try {
-        const azureClient = new AzureMCPClient({
+        const azureClient = new AzureAPIClient({
           accessToken: request.azureToken,
         });
-        const azureToolHandlers = new AzureToolHandlers(azureClient);
-        const azureTools = azureToolHandlers.getTools();
+        const azureToolsInstance = new AzureTools(azureClient);
+        const azureTools = azureToolsInstance.getTools();
 
         allTools.push(...azureTools);
       } catch (error) {
@@ -114,13 +114,11 @@ export async function callGemini(request: AIRequest): Promise<string> {
     // Try Atlassian
     if (request.atlassianToken) {
       try {
-        const atlassianClient = new AtlassianMCPClient({
+        const atlassianClient = new AtlassianAPIClient({
           accessToken: request.atlassianToken,
         });
-        const atlassianToolHandlers = new AtlassianToolHandlers(
-          atlassianClient
-        );
-        const atlassianTools = atlassianToolHandlers.getTools();
+        const atlassianToolsInstance = new AtlassianTools(atlassianClient);
+        const atlassianTools = atlassianToolsInstance.getTools();
 
         allTools.push(...atlassianTools);
       } catch (error) {

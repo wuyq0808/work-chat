@@ -1,24 +1,24 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { AzureMCPClient, type AzureConfig } from './azure-client.js';
-import { AzureToolHandlers } from './azure-tools.js';
+import { AzureAPIClient, type AzureConfig } from './azure-client.js';
+import { AzureTools } from './azure-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class AzureStreamableMCPServer {
-  private azureClient: AzureMCPClient | null = null;
-  private toolHandlers: AzureToolHandlers | null = null;
+  private azureClient: AzureAPIClient | null = null;
+  private tools: AzureTools | null = null;
 
   constructor() {}
 
   // Initialize the Azure client with access token
   initializeAzureClient(config: AzureConfig): void {
-    this.azureClient = new AzureMCPClient(config);
-    this.toolHandlers = new AzureToolHandlers(this.azureClient);
+    this.azureClient = new AzureAPIClient(config);
+    this.tools = new AzureTools(this.azureClient);
   }
 
   // Create the MCP server instance
   createServer(): McpServer {
-    if (!this.toolHandlers) {
+    if (!this.tools) {
       throw new Error(
         'Azure client not initialized. Call initializeAzureClient() first.'
       );
@@ -44,11 +44,11 @@ export class AzureStreamableMCPServer {
 
   // Register all Azure tools with a streamable MCP server
   private registerTools(server: McpServer): void {
-    if (!this.toolHandlers) {
-      throw new Error('Tool handlers not initialized');
+    if (!this.tools) {
+      throw new Error('Tools not initialized');
     }
 
-    const toolDefinitions = getToolDefinitions(this.toolHandlers.getTools());
+    const toolDefinitions = getToolDefinitions(this.tools.getTools());
 
     for (const toolDef of toolDefinitions) {
       server.registerTool(
@@ -59,7 +59,7 @@ export class AzureStreamableMCPServer {
         },
         async (args: any) => {
           const result = await executeTool(
-            this.toolHandlers!.getTools(),
+            this.tools!.getTools(),
             toolDef.name,
             args
           );

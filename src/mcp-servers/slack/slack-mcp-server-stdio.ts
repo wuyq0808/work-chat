@@ -3,21 +3,21 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { SlackMCPClient, type SlackConfig } from './slack-client.js';
-import { SlackToolHandlers } from './slack-tools.js';
+import { SlackAPIClient, type SlackConfig } from './slack-client.js';
+import { SlackTools } from './slack-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
 
 export class SlackMCPStdioServer {
-  private slackClient: SlackMCPClient;
+  private slackClient: SlackAPIClient;
   private server: Server;
-  private toolHandlers: SlackToolHandlers;
+  private tools: SlackTools;
 
   constructor(config: SlackConfig) {
     // Initialize Slack client
-    this.slackClient = new SlackMCPClient(config);
+    this.slackClient = new SlackAPIClient(config);
 
     // Initialize tool handlers
-    this.toolHandlers = new SlackToolHandlers(this.slackClient);
+    this.tools = new SlackTools(this.slackClient);
 
     // Create the MCP server
     this.server = new Server(
@@ -39,14 +39,14 @@ export class SlackMCPStdioServer {
     // Register list_tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: getToolDefinitions(this.toolHandlers.getTools()),
+        tools: getToolDefinitions(this.tools.getTools()),
       };
     });
 
     // Register call_tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
-      return await executeTool(this.toolHandlers.getTools(), name, args);
+      return await executeTool(this.tools.getTools(), name, args);
     });
   }
 
