@@ -52,6 +52,7 @@ export class AtlassianOAuthService {
       'read:jira-work',
       'read:confluence-user',
       'read:confluence-content.all',
+      'search:confluence', // Search Confluence content and space summaries
       'offline_access', // For refresh tokens
     ];
   }

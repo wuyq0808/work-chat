@@ -33,7 +33,8 @@ export class AtlassianToolHandlers {
           properties: {
             jql: {
               type: 'string',
-              description: 'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")',
+              description:
+                'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")',
             },
             maxResults: {
               type: 'number',
@@ -45,13 +46,49 @@ export class AtlassianToolHandlers {
       },
       {
         name: 'search_confluence_pages',
-        description: 'Search for Confluence pages by title or content',
+        description:
+          'Search for Confluence pages using CQL (Confluence Query Language)',
         inputSchema: {
           type: 'object',
           properties: {
             query: {
               type: 'string',
-              description: 'Search query for page titles or content',
+              description:
+                'Search query for page titles or content (simple text search)',
+            },
+            cql: {
+              type: 'string',
+              description:
+                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \"search term\"")',
+            },
+            space: {
+              type: 'string',
+              description:
+                'Filter results to specific space key (e.g., "PROJ")',
+            },
+            type: {
+              type: 'string',
+              description:
+                'Content type filter: "page", "blogpost", or "attachment"',
+              enum: ['page', 'blogpost', 'attachment'],
+            },
+            maxResults: {
+              type: 'number',
+              description: 'Maximum number of results to return (default: 10)',
+            },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'search_confluence_spaces',
+        description: 'Search for Confluence spaces',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Search query for space names or keys',
             },
             maxResults: {
               type: 'number',
@@ -73,6 +110,9 @@ export class AtlassianToolHandlers {
 
         case 'search_confluence_pages':
           return await this.handleSearchConfluencePages(args);
+
+        case 'search_confluence_spaces':
+          return await this.handleSearchConfluenceSpaces(args);
 
         default:
           return {
@@ -111,7 +151,8 @@ export class AtlassianToolHandlers {
 
     if (searchResult.success && searchResult.data) {
       const issues = searchResult.data.issues;
-      let content = 'key,summary,status,assignee,reporter,priority,created,updated\n';
+      let content =
+        'key,summary,status,assignee,reporter,priority,created,updated\n';
 
       for (const issue of issues) {
         const assignee = issue.fields.assignee?.displayName || 'Unassigned';
@@ -149,30 +190,55 @@ export class AtlassianToolHandlers {
   }
 
   private async handleSearchConfluencePages(args: any): Promise<ToolResponse> {
-    const { query, maxResults = 10 } = args as {
-      query: string;
+    const {
+      query,
+      cql,
+      space,
+      type,
+      maxResults = 10,
+    } = args as {
+      query?: string;
+      cql?: string;
+      space?: string;
+      type?: string;
       maxResults?: number;
     };
 
-    const searchResult = await this.atlassianClient.searchConfluencePages(
-      query,
+    const searchResult = await this.atlassianClient.searchConfluenceContent(
+      { query, cql, space, type },
       maxResults
     );
 
     if (searchResult.success && searchResult.data) {
       const pages = searchResult.data.results;
-      let content = 'id,title,type,space,url,lastModified\n';
+
+      if (pages.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'No Confluence pages found matching the search criteria.',
+            },
+          ],
+        };
+      }
+
+      let content = 'id,title,type,space,url,lastModified,excerpt\n';
 
       for (const page of pages) {
         const spaceKey = page.space?.key || 'Unknown';
+        const spaceName = page.space?.name || 'Unknown';
         const url = page._links?.webui
           ? `https://your-domain.atlassian.net${page._links.webui}`
           : 'No URL';
         const lastModified = page.version?.when
           ? new Date(page.version.when).toISOString().split('T')[0]
           : 'Unknown';
+        const excerpt = page.excerpt
+          ? page.excerpt.replace(/"/g, '""').substring(0, 100) + '...'
+          : 'No excerpt';
 
-        content += `${page.id},"${page.title}","${page.type}","${spaceKey}","${url}",${lastModified}\n`;
+        content += `${page.id},"${page.title}","${page.type}","${spaceKey} (${spaceName})","${url}",${lastModified},"${excerpt}"\n`;
       }
 
       return {
@@ -189,6 +255,63 @@ export class AtlassianToolHandlers {
           {
             type: 'text',
             text: `Error searching Confluence pages: ${searchResult.error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleSearchConfluenceSpaces(args: any): Promise<ToolResponse> {
+    const { query, maxResults = 10 } = args as {
+      query: string;
+      maxResults?: number;
+    };
+
+    const searchResult = await this.atlassianClient.searchConfluenceSpaces(
+      query,
+      maxResults
+    );
+
+    if (searchResult.success && searchResult.data) {
+      const spaces = searchResult.data.results;
+
+      if (spaces.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'No Confluence spaces found matching the search criteria.',
+            },
+          ],
+        };
+      }
+
+      let content = 'key,name,type,status,description\n';
+
+      for (const space of spaces) {
+        const description = space.description?.plain?.value || 'No description';
+        const cleanDescription = description
+          .replace(/"/g, '""')
+          .substring(0, 100);
+
+        content += `"${space.key}","${space.name}","${space.type}","${space.status}","${cleanDescription}"\n`;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: content,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error searching Confluence spaces: ${searchResult.error}`,
           },
         ],
         isError: true,
