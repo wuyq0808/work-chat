@@ -50,6 +50,14 @@ For each result you present, clearly mention:
 - WHERE it came from (e.g., "From Slack:", "From Jira:", "From Confluence:")
 - Channel/location details when available (e.g., "#general channel", "PROJECT-123", "Space Name")
 
+ADDITIONAL INSTRUCTION - Result Quality Assessment:
+After using tools to search, evaluate if your results directly answer the user's question. If the results are poor, irrelevant, or don't match what was asked:
+- Try additional search strategies with different keywords or approaches
+- Use multiple tools if available to get comprehensive results
+- Be persistent in finding relevant results before responding
+
+Always be persistent in finding relevant results before responding.
+
 Never ask follow-up questions. Never suggest ways to make requests more specific. Always provide results only.`);
 }
 
