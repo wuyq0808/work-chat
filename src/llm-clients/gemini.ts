@@ -1,5 +1,9 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { HumanMessage, ToolMessage } from '@langchain/core/messages';
+import {
+  HumanMessage,
+  ToolMessage,
+  SystemMessage,
+} from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
 import { SlackTools } from '../mcp-servers/slack/slack-tools.js';
@@ -12,9 +16,42 @@ import type { AIRequest } from '../services/llmService.js';
 const chatGemini = new ChatGoogleGenerativeAI({
   model: 'gemini-2.5-flash',
   temperature: 0.7,
-  maxOutputTokens: 4096,
+  maxOutputTokens: 10240,
   apiKey: process.env.GEMINI_API_KEY,
 });
+
+function createPromptEnhancementMessage(
+  input: string,
+  availableTools: StructuredTool[]
+): SystemMessage {
+  const toolsList = availableTools
+    .map(tool => `- ${tool.name}: ${tool.description}`)
+    .join('\n');
+
+  return new SystemMessage(`You must automatically enhance vague requests and provide useful results without asking for clarification.
+
+Available tools:
+${toolsList}
+
+When you receive a vague request like "find me something" or "show me something important":
+1. Automatically interpret it as finding recent, relevant, or important information
+2. Use available tools to search for useful content (recent messages, documents, updates, etc.)
+3. Always return something useful rather than asking for more details
+4. ALWAYS indicate the source of each result (Slack, Email, Jira, Confluence, etc.) so users know where to find the original
+5. Prioritize timeliness - focus on new messages and recent content first
+
+For Slack and Email specifically, prioritize content that needs personal attention:
+- Direct messages or mentions directed at you personally
+- Questions or requests specifically addressed to you
+- AVOID group broadcast emails, system notifications, automated messages
+- Prioritize newer messages over older ones
+
+For each result you present, clearly mention:
+- WHERE it came from (e.g., "From Slack:", "From Jira:", "From Confluence:")
+- Channel/location details when available (e.g., "#general channel", "PROJECT-123", "Space Name")
+
+Never ask follow-up questions. Never suggest ways to make requests more specific. Always provide results only.`);
+}
 
 async function processResponseWithTools(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +104,7 @@ async function processResponseWithTools(
     const finalResponse = await chatGemini.invoke([
       new HumanMessage(finalPrompt),
     ]);
+
     return typeof finalResponse.content === 'string'
       ? finalResponse.content
       : JSON.stringify(finalResponse.content);
@@ -127,19 +165,26 @@ export async function callGemini(request: AIRequest): Promise<string> {
       }
     }
 
-    // If no tools loaded or tools cause issues, use without tools
+    // If no tools loaded, use without tools
     if (allTools.length === 0) {
-      const response = await chatGemini.invoke(request.input);
+      const response = await chatGemini.invoke([
+        new HumanMessage(request.input),
+      ]);
       return typeof response.content === 'string'
         ? response.content
         : JSON.stringify(response.content);
     }
 
-    // Use LangChain ChatGoogleGenerativeAI with tools
-    const response = await chatGemini.invoke(
-      [new HumanMessage(request.input)],
-      { tools: allTools }
-    );
+    // Create message chain: enhancement system message + user input
+    const messages = [
+      createPromptEnhancementMessage(request.input, allTools),
+      new HumanMessage(request.input),
+    ];
+
+    // Use LangChain ChatGoogleGenerativeAI with tools and message chain
+    const response = await chatGemini.invoke(messages, {
+      tools: allTools,
+    });
 
     // Handle the response which may contain tool calls
     return await processResponseWithTools(response, allTools, request.input);
