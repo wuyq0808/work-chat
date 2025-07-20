@@ -17,9 +17,6 @@
     "@anthropic-ai/sdk": "^0.56.0",
     "@google/genai": "^1.10.0",
     "@langchain/google-genai": "^0.1.4",
-    "@langchain/mcp-adapters": "^0.5.3",
-    "langchain": "^0.3.13",
-    "zod": "^3.24.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@modelcontextprotocol/sdk": "^1.15.1",
     "@slack/oauth": "^3.0.3",
@@ -28,8 +25,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
-    "openai": "^5.9.0",
-    "zod-to-json-schema": "^3.24.6"
+    "openai": "^5.9.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",

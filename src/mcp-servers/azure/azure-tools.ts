@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { AzureMCPClient } from './azure-client.js';
 
@@ -27,7 +26,11 @@ export class AzureToolHandlers {
         name: 'azure__get_profile',
         description:
           'Get the current user profile information from Microsoft Graph',
-        schema: z.object({}), // Empty schema for tools with no parameters
+        schema: {
+          type: 'object',
+          properties: {},
+          required: [],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleGetProfile()),
       }) as DynamicStructuredTool,
@@ -35,17 +38,27 @@ export class AzureToolHandlers {
       new DynamicStructuredTool({
         name: 'azure__get_messages',
         description: 'Get messages from Outlook/Exchange',
-        schema: z.object({
-          limit: z
-            .number()
-            .optional()
-            .describe('Number of messages to retrieve (default: 10)'),
-          filter: z
-            .string()
-            .optional()
-            .describe('OData filter expression (e.g., "isRead eq false")'),
-          search: z.string().optional().describe('Search query for messages'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Number of messages to retrieve (default: 10)',
+              optional: true,
+            },
+            filter: {
+              type: 'string',
+              description: 'OData filter expression (e.g., "isRead eq false")',
+              optional: true,
+            },
+            search: {
+              type: 'string',
+              description: 'Search query for messages',
+              optional: true,
+            },
+          },
+          required: [],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleGetMessages(input)),
       }) as DynamicStructuredTool,
@@ -53,20 +66,27 @@ export class AzureToolHandlers {
       new DynamicStructuredTool({
         name: 'azure__get_calendar_events',
         description: 'Get calendar events from Outlook/Exchange',
-        schema: z.object({
-          limit: z
-            .number()
-            .optional()
-            .describe('Number of events to retrieve (default: 10)'),
-          start_time: z
-            .string()
-            .optional()
-            .describe('Start time filter (ISO 8601 format)'),
-          end_time: z
-            .string()
-            .optional()
-            .describe('End time filter (ISO 8601 format)'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            limit: {
+              type: 'number',
+              description: 'Number of events to retrieve (default: 10)',
+              optional: true,
+            },
+            start_time: {
+              type: 'string',
+              description: 'Start time filter (ISO 8601 format)',
+              optional: true,
+            },
+            end_time: {
+              type: 'string',
+              description: 'End time filter (ISO 8601 format)',
+              optional: true,
+            },
+          },
+          required: [],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleGetCalendarEvents(input)),
       }) as DynamicStructuredTool,
@@ -93,7 +113,7 @@ export class AzureToolHandlers {
     return this.tools.map(tool => ({
       name: tool.name,
       description: tool.description,
-      inputSchema: (tool as any).schema,
+      inputSchema: tool.schema,
     }));
   }
 

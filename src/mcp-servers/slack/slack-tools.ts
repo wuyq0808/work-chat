@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { SlackMCPClient } from './slack-client.js';
 
@@ -26,15 +25,21 @@ export class SlackToolHandlers {
       new DynamicStructuredTool({
         name: 'slack__conversations_history',
         description: 'Get conversation history from a Slack channel',
-        schema: z.object({
-          channel_id: z
-            .string()
-            .describe('Channel ID or name (e.g., #general)'),
-          limit: z
-            .number()
-            .optional()
-            .describe('Number of messages (default: 10)'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            channel_id: {
+              type: 'string',
+              description: 'Channel ID or name (e.g., #general)',
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of messages (default: 10)',
+              optional: true,
+            },
+          },
+          required: ['channel_id'],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleConversationsHistory(input)),
       }) as DynamicStructuredTool,
@@ -43,13 +48,22 @@ export class SlackToolHandlers {
         name: 'slack__channels_list',
         description:
           'List all accessible Slack channels with pagination support',
-        schema: z.object({
-          cursor: z.string().optional().describe('Pagination cursor'),
-          limit: z
-            .number()
-            .optional()
-            .describe('Number of channels (default: 10, max: 100)'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            cursor: {
+              type: 'string',
+              description: 'Pagination cursor',
+              optional: true,
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of channels (default: 10, max: 100)',
+              optional: true,
+            },
+          },
+          required: [],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleChannelsList(input)),
       }) as DynamicStructuredTool,
@@ -57,18 +71,25 @@ export class SlackToolHandlers {
       new DynamicStructuredTool({
         name: 'slack__conversations_replies',
         description: 'Get thread replies from a Slack conversation',
-        schema: z.object({
-          channel_id: z
-            .string()
-            .describe('Channel ID or name (e.g., #general)'),
-          thread_ts: z
-            .string()
-            .describe('Thread timestamp (e.g., 1234567890.123456)'),
-          limit: z
-            .number()
-            .optional()
-            .describe('Number of replies (default: 10)'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            channel_id: {
+              type: 'string',
+              description: 'Channel ID or name (e.g., #general)',
+            },
+            thread_ts: {
+              type: 'string',
+              description: 'Thread timestamp (e.g., 1234567890.123456)',
+            },
+            limit: {
+              type: 'number',
+              description: 'Number of replies (default: 10)',
+              optional: true,
+            },
+          },
+          required: ['channel_id', 'thread_ts'],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleConversationsReplies(input)),
       }) as DynamicStructuredTool,
@@ -76,21 +97,33 @@ export class SlackToolHandlers {
       new DynamicStructuredTool({
         name: 'slack__search_messages',
         description: 'Search for messages across Slack workspace',
-        schema: z.object({
-          query: z.string().describe('Search query text'),
-          count: z
-            .number()
-            .optional()
-            .describe('Number of results (default: 20)'),
-          sort: z
-            .enum(['score', 'timestamp'])
-            .optional()
-            .describe('Sort by relevance or time'),
-          sort_dir: z
-            .enum(['asc', 'desc'])
-            .optional()
-            .describe('Sort direction'),
-        }),
+        schema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Search query text',
+            },
+            count: {
+              type: 'number',
+              description: 'Number of results (default: 20)',
+              optional: true,
+            },
+            sort: {
+              type: 'string',
+              enum: ['score', 'timestamp'],
+              description: 'Sort by relevance or time',
+              optional: true,
+            },
+            sort_dir: {
+              type: 'string',
+              enum: ['asc', 'desc'],
+              description: 'Sort direction',
+              optional: true,
+            },
+          },
+          required: ['query'],
+        },
         func: async input =>
           this.formatToolResponse(await this.handleSearchMessages(input)),
       }) as DynamicStructuredTool,
@@ -117,7 +150,7 @@ export class SlackToolHandlers {
     return this.tools.map(tool => ({
       name: tool.name,
       description: tool.description,
-      inputSchema: (tool as any).schema,
+      inputSchema: tool.schema,
     }));
   }
 
