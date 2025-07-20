@@ -48,17 +48,19 @@ app.get('/atlassian/install', atlassianOAuthService.handleInstall);
 app.get('/atlassian/oauth_redirect', atlassianOAuthService.handleCallback);
 
 // Homepage route with basic URL authentication
-app.get('/', (req, res) => {
-  const apiKey = process.env.API_KEY;
-  const providedApiKey = req.query.apikey as string;
+app.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const apiKey = process.env.API_KEY;
+    const providedApiKey = req.query.apikey as string;
 
-  if (!apiKey) {
-    console.warn('Warning: API_KEY environment variable not set');
-    return res.status(500).send('Server configuration error');
-  }
+    if (!apiKey) {
+      console.warn('Warning: API_KEY environment variable not set');
+      return res.status(500).send('Server configuration error');
+    }
 
-  if (providedApiKey !== apiKey) {
-    return res.status(401).send(`
+    if (providedApiKey !== apiKey) {
+      return res.status(401).send(`
       <html>
         <head><title>Access Denied</title></head>
         <body>
@@ -68,10 +70,46 @@ app.get('/', (req, res) => {
         </body>
       </html>
     `);
-  }
+    }
 
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+    // Check and refresh Atlassian token if needed
+    try {
+      const accessToken = req.cookies.atlassian_token;
+      const refreshToken = req.cookies.atlassian_refresh_token;
+
+      // If we have a refresh token but no access token (expired), try to refresh
+      if (refreshToken && !accessToken) {
+        try {
+          const tokenResponse =
+            await atlassianOAuthService.refreshToken(refreshToken);
+
+          // Set new cookies
+          const isProduction = process.env.NODE_ENV === 'production';
+          const cookies = [
+            `atlassian_token=${encodeURIComponent(tokenResponse.access_token)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${tokenResponse.expires_in}; Path=/`,
+          ];
+
+          // Update refresh token if provided
+          if (tokenResponse.refresh_token) {
+            cookies.push(
+              `atlassian_refresh_token=${encodeURIComponent(tokenResponse.refresh_token)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=2592000; Path=/`
+            );
+          }
+
+          res.setHeader('Set-Cookie', cookies);
+        } catch (error) {
+          console.warn('Failed to refresh Atlassian token:', error);
+          // Continue serving the page even if refresh fails
+        }
+      }
+    } catch (error) {
+      console.warn('Error checking Atlassian token:', error);
+      // Continue serving the page even if token check fails
+    }
+
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  })
+);
 
 // AI API endpoint (supports OpenAI and Claude)
 app.post(

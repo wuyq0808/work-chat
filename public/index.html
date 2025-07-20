@@ -91,7 +91,6 @@ Display them.
             throw new Error('No API key provided');
         }
 
-        
         // Handle Azure connection status (check for user_name since azure_token is HttpOnly)
         if (azureUserNameFromCookie && azureUserNameFromCookie !== 'null') {
             // Replace install button with compact connected status
