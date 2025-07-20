@@ -1,6 +1,6 @@
-import { callOpenAI } from '../llmClients/openai.js';
-import { callClaude } from '../llmClients/claude.js';
-import { callGemini } from '../llmClients/gemini.js';
+import { callOpenAI } from '../llm-clients/openai.js';
+import { callClaude } from '../llm-clients/claude.js';
+import { callGemini } from '../llm-clients/gemini.js';
 
 export type AIProvider = 'openai' | 'claude' | 'gemini';
 
