@@ -1,32 +1,7 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import {
-  accessTokenCookieString,
-  refreshTokenCookieString,
-  regularCookieString,
-} from '../utils/cookieUtils.js';
-
-interface AtlassianTokenResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token?: string;
-  scope: string;
-}
-
-interface AtlassianUserInfo {
-  account_id: string;
-  name: string;
-  email: string;
-  picture?: string;
-}
-
-interface AtlassianAccessibleResource {
-  id: string;
-  name: string;
-  scopes: string[];
-  avatarUrl?: string;
-}
+import { setAtlassianCookies } from '../utils/cookieUtils.js';
+import type { AtlassianTokenResponse } from '../types/atlassian.js';
 
 export class AtlassianOAuthService {
   private clientId: string;
@@ -101,43 +76,6 @@ export class AtlassianOAuthService {
     return response.json() as Promise<AtlassianTokenResponse>;
   }
 
-  private async getUserInfo(accessToken: string): Promise<AtlassianUserInfo> {
-    const response = await globalThis.fetch('https://api.atlassian.com/me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to get user info: ${error}`);
-    }
-
-    return response.json() as Promise<AtlassianUserInfo>;
-  }
-
-  private async getAccessibleResources(
-    accessToken: string
-  ): Promise<AtlassianAccessibleResource[]> {
-    const response = await globalThis.fetch(
-      'https://api.atlassian.com/oauth/token/accessible-resources',
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to get accessible resources: ${error}`);
-    }
-
-    return response.json() as Promise<AtlassianAccessibleResource[]>;
-  }
-
   handleInstall = asyncHandler(async (req: Request, res: Response) => {
     const authUrl = this.generateAuthorizationUrl();
     res.redirect(authUrl);
@@ -177,54 +115,10 @@ export class AtlassianOAuthService {
 
     try {
       const tokenResponse = await this.exchangeCodeForToken(code);
-      const userInfo = await this.getUserInfo(tokenResponse.access_token);
-      await this.getAccessibleResources(tokenResponse.access_token);
 
-      // Set secure HttpOnly cookies for Atlassian tokens and user info
+      // Set cookies using utility function
       const isProduction = process.env.NODE_ENV === 'production';
-
-      // Set Atlassian token as HttpOnly cookie
-      const cookies = [
-        accessTokenCookieString(
-          'atlassian_token',
-          tokenResponse.access_token,
-          tokenResponse.expires_in,
-          isProduction
-        ),
-      ];
-
-      // Store refresh token if available
-      if (tokenResponse.refresh_token) {
-        cookies.push(
-          refreshTokenCookieString(
-            'atlassian_refresh_token',
-            tokenResponse.refresh_token,
-            isProduction
-          )
-        );
-      }
-
-      // Store user info in regular cookies
-      if (userInfo.name) {
-        cookies.push(
-          regularCookieString(
-            'atlassian_user_name',
-            userInfo.name,
-            tokenResponse.expires_in,
-            isProduction
-          )
-        );
-      }
-      if (userInfo.email) {
-        cookies.push(
-          regularCookieString(
-            'atlassian_user_email',
-            userInfo.email,
-            tokenResponse.expires_in,
-            isProduction
-          )
-        );
-      }
+      const cookies = setAtlassianCookies(tokenResponse, isProduction);
 
       res.setHeader('Set-Cookie', cookies);
 

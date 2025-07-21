@@ -17,10 +17,8 @@ import {
   getAtlassianTokenFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
-import {
-  callAIWithStream,
-  type AIProvider,
-} from './services/llmService.js';
+import { callAIWithStream, type AIProvider } from './services/llmService.js';
+import { setAtlassianCookies } from './utils/cookieUtils.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,18 +84,9 @@ app.get(
           const tokenResponse =
             await atlassianOAuthService.refreshToken(refreshToken);
 
-          // Set new cookies
+          // Set new cookies using utility function
           const isProduction = process.env.NODE_ENV === 'production';
-          const cookies = [
-            `atlassian_token=${encodeURIComponent(tokenResponse.access_token)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${tokenResponse.expires_in}; Path=/`,
-          ];
-
-          // Update refresh token if provided
-          if (tokenResponse.refresh_token) {
-            cookies.push(
-              `atlassian_refresh_token=${encodeURIComponent(tokenResponse.refresh_token)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=2592000; Path=/`
-            );
-          }
+          const cookies = setAtlassianCookies(tokenResponse, isProduction);
 
           res.setHeader('Set-Cookie', cookies);
         } catch (error) {

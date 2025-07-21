@@ -164,8 +164,7 @@
         const azureUserNameFromCookie = getCookie('azure_user_name');
         const azureUserEmailFromCookie = getCookie('azure_user_email');
         const atlassianTokenFromCookie = getCookie('atlassian_token');
-        const atlassianUserNameFromCookie = getCookie('atlassian_user_name');
-        const atlassianUserEmailFromCookie = getCookie('atlassian_user_email');
+        const atlassianConnectedFromCookie = getCookie('atlassian_connected');
         
         
         if (!apiKey) {
@@ -191,8 +190,8 @@
             document.getElementById('slackInstall').replaceWith(teamInfo);
         }
         
-        // Handle Atlassian connection status (check for user_name since atlassian_token is HttpOnly)
-        if (atlassianUserNameFromCookie && atlassianUserNameFromCookie !== 'null') {
+        // Handle Atlassian connection status
+        if (atlassianConnectedFromCookie && atlassianConnectedFromCookie !== 'null') {
             // Replace install button with compact connected status
             const userInfo = document.createElement('span');
             userInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f4ff; border-radius: 3px; color: #0052cc; font-size: 14px; vertical-align: middle;';
