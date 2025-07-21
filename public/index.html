@@ -57,6 +57,16 @@
     
     <div id="response" style="display: none;">
         <hr>
+        <div id="progressStatus" style="color: #666; font-style: italic; margin-bottom: 10px;"></div>
+        
+        <!-- Tool Call History Section -->
+        <details id="toolHistorySection" style="margin-bottom: 15px;">
+            <summary style="cursor: pointer; font-size: 14px; color: #666;">Tools Called</summary>
+            <div id="toolHistoryList" style="margin-top: 5px; padding: 5px; background-color: #f9f9f9; border-radius: 3px; max-height: 200px; overflow-y: auto; font-size: 12px;">
+                <!-- Tool calls will be added here dynamically -->
+            </div>
+        </details>
+        
         <pre id="responseContent"></pre>
     </div>
 
@@ -67,6 +77,7 @@
         
         // Conversation management
         let currentConversationId = null;
+        let toolCallHistory = [];
         
         function generateConversationId() {
             return Math.random().toString(36).substr(2, 9);
@@ -75,7 +86,68 @@
         function startNewConversation() {
             currentConversationId = generateConversationId();
             document.getElementById('conversationStatus').textContent = `Conversation: ${currentConversationId}`;
+            toolCallHistory = []; // Clear tool history for new conversation
+            updateToolHistory();
             console.log('Started new conversation:', currentConversationId);
+        }
+        
+        function addToolCall(tool, args, status = 'running', result = null, error = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const toolCall = {
+                tool,
+                args,
+                status,
+                result,
+                error,
+                timestamp
+            };
+            
+            // Update existing tool call or add new one
+            const existingIndex = toolCallHistory.findIndex(tc => tc.tool === tool && tc.status === 'running');
+            if (existingIndex >= 0 && status !== 'running') {
+                toolCallHistory[existingIndex] = { ...toolCallHistory[existingIndex], status, result, error };
+            } else if (status === 'running') {
+                toolCallHistory.push(toolCall);
+            }
+            
+            updateToolHistory();
+        }
+        
+        function updateToolHistory() {
+            const toolHistoryList = document.getElementById('toolHistoryList');
+            if (toolCallHistory.length === 0) {
+                toolHistoryList.innerHTML = '<div style="color: #666; font-style: italic;">No tool calls yet</div>';
+                return;
+            }
+            
+            toolHistoryList.innerHTML = toolCallHistory.map(tc => {
+                let argDisplay = '';
+                if (tc.args && Object.keys(tc.args).length > 0) {
+                    const argPairs = Object.entries(tc.args)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join(', ');
+                    argDisplay = `(${argPairs})`;
+                }
+                
+                let resultDisplay = '';
+                if (tc.result && tc.status === 'completed') {
+                    const truncatedResult = typeof tc.result === 'string' ? 
+                        (tc.result.length > 100 ? tc.result.substring(0, 100) + '...' : tc.result) : 
+                        'Done';
+                    resultDisplay = `<div style="margin-top: 5px; font-size: 0.9em; color: #666;">Result: ${truncatedResult}</div>`;
+                }
+                
+                if (tc.error && tc.status === 'error') {
+                    resultDisplay = `<div style="margin-top: 5px; font-size: 0.9em; color: #d32f2f;">Error: ${tc.error}</div>`;
+                }
+                
+                return `
+                    <div style="margin-bottom: 5px; padding: 5px; background-color: white; border-radius: 2px;">
+                        <div style="font-weight: 500;">${tc.tool}${argDisplay}</div>
+                        ${resultDisplay}
+                    </div>
+                `;
+            }).join('');
         }
         
         // Get tokens from cookies (secure approach)
@@ -135,17 +207,20 @@
             const submitBtn = document.getElementById('submitBtn');
             const responseDiv = document.getElementById('response');
             const responseContent = document.getElementById('responseContent');
+            const progressStatus = document.getElementById('progressStatus');
             
             if (!message.trim()) return;
             
             submitBtn.disabled = true;
             submitBtn.textContent = 'Sending...';
             responseDiv.style.display = 'block';
-            responseContent.textContent = 'Loading...';
+            responseContent.textContent = '';
+            progressStatus.textContent = 'Initializing...';
+            
             
             try {
-                // All tokens are now handled via cookies on the server side
-                const response = await fetch('/api/ai/generate', {
+                // Send request with streaming response
+                const response = await fetch('/api/ai/stream', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -157,16 +232,80 @@
                         conversationId: currentConversationId
                     })
                 });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    responseContent.textContent = data.output;
-                } else {
-                    responseContent.textContent = `Error: ${data.error}`;
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
+                // Read the streaming response
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    // Decode the chunk and add to buffer
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Process complete SSE messages
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                switch (data.type) {
+                                    case 'status':
+                                        progressStatus.textContent = data.data;
+                                        break;
+                                        
+                                    case 'tool_start':
+                                        let toolDisplay = data.data.tool;
+                                        if (data.data.args && Object.keys(data.data.args).length > 0) {
+                                            const argPairs = Object.entries(data.data.args)
+                                                .map(([key, value]) => `${key}: ${value}`)
+                                                .join(', ');
+                                            toolDisplay = `${data.data.tool}(${argPairs})`;
+                                        }
+                                        progressStatus.textContent = `🔧 Running ${toolDisplay}...`;
+                                        addToolCall(data.data.tool, data.data.args, 'running');
+                                        break;
+                                        
+                                    case 'tool_complete':
+                                        progressStatus.textContent = `✅ ${data.data.tool} completed`;
+                                        addToolCall(data.data.tool, null, 'completed', data.data.result);
+                                        break;
+                                        
+                                    case 'tool_error':
+                                        progressStatus.textContent = `❌ ${data.data.tool} failed: ${data.data.error}`;
+                                        addToolCall(data.data.tool, null, 'error', null, data.data.error);
+                                        break;
+                                        
+                                    case 'complete':
+                                        responseContent.textContent = data.data;
+                                        progressStatus.textContent = '';
+                                        break;
+                                        
+                                    case 'error':
+                                        responseContent.textContent = `Error: ${data.data}`;
+                                        progressStatus.textContent = '';
+                                        break;
+                                }
+                            } catch (e) {
+                                console.error('Failed to parse SSE data:', e);
+                            }
+                        }
+                    }
+                }
+                
             } catch (error) {
                 responseContent.textContent = `Error: ${error.message}`;
+                progressStatus.textContent = '';
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Send';

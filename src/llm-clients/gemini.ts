@@ -4,7 +4,6 @@ import {
   ToolMessage,
   SystemMessage,
   BaseMessage,
-  AIMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
@@ -13,12 +12,13 @@ import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
 import { AzureTools } from '../mcp-servers/azure/azure-tools.js';
 import { AtlassianAPIClient } from '../mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
-import type { AIRequest } from '../services/llmService.js';
+import type { AIRequest, StreamingAIRequest } from '../services/llmService.js';
+import { withRetry, isGeminiPartsError } from '../utils/retryUtils.js';
 
 const chatGemini = new ChatGoogleGenerativeAI({
   model: 'gemini-2.5-flash',
   temperature: 0.7,
-  maxOutputTokens: 10240,
+  maxOutputTokens: 1024 * 8,
   apiKey: process.env.GEMINI_API_KEY,
 });
 
@@ -79,12 +79,22 @@ For Slack and Email specifically:
 - Always provide results only`);
 }
 
+// Helper function to extract string content from AIMessage
+function extractContentAsString(message: any): string {
+  return typeof message.content === 'string'
+    ? message.content
+    : JSON.stringify(message.content);
+}
+
 async function processResponseWithTools(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   response: any, // LangChain response type is complex and varies by model
   tools: StructuredTool[],
-  originalInput: string
-): Promise<string> {
+  conversationId: string, // Needed to add tool messages to history
+  onProgress?: (event: { type: string; data: any }) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Promise<any> {
+  // Returns AIMessage
   // Check if the response has tool calls
   if (response.tool_calls && response.tool_calls.length > 0) {
     const toolMessages: ToolMessage[] = [];
@@ -95,7 +105,29 @@ async function processResponseWithTools(
 
       if (tool) {
         try {
+          // Send progress update for tool execution
+          onProgress?.({
+            type: 'tool_start',
+            data: {
+              tool: toolCall.name,
+              args: toolCall.args,
+            },
+          });
+
           const result = await tool.invoke(toolCall.args);
+
+          // Send progress update for tool completion
+          onProgress?.({
+            type: 'tool_complete',
+            data: {
+              tool: toolCall.name,
+              result:
+                typeof result === 'string'
+                  ? result.substring(0, 200) +
+                    (result.length > 200 ? '...' : '')
+                  : 'Done',
+            },
+          });
 
           toolMessages.push(
             new ToolMessage({
@@ -104,6 +136,15 @@ async function processResponseWithTools(
             })
           );
         } catch (error) {
+          // Send progress update for tool error
+          onProgress?.({
+            type: 'tool_error',
+            data: {
+              tool: toolCall.name,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            },
+          });
+
           toolMessages.push(
             new ToolMessage({
               content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -121,28 +162,40 @@ async function processResponseWithTools(
       }
     }
 
-    // Create a summary of tool results for the final response
-    const toolResultsSummary = toolMessages
-      .map(msg => `Tool result: ${msg.content}`)
-      .join('\n\n');
+    // Add tool messages to conversation history
+    toolMessages.forEach(toolMessage => {
+      addToConversationHistory(conversationId, toolMessage);
+    });
 
-    const finalPrompt = `${originalInput}\n\nI've executed the following tools for you:\n${toolResultsSummary}\n\nPlease provide a comprehensive response based on the tool results.`;
-    const finalResponse = await chatGemini.invoke([
-      new HumanMessage(finalPrompt),
-    ]);
+    // Create the complete message sequence that Gemini requires:
+    // Use the updated conversation history which now includes the AI response and tool results
+    const updatedHistory = getConversationHistory(conversationId);
 
-    return typeof finalResponse.content === 'string'
-      ? finalResponse.content
-      : JSON.stringify(finalResponse.content);
+    // Let the model process the tool results and generate a final response
+    onProgress?.({ type: 'status', data: 'Processing results...' });
+    const finalResponse = await withRetry(
+      () => chatGemini.invoke(updatedHistory),
+      { retries: 3 },
+      isGeminiPartsError
+    );
+
+    return finalResponse; // Return the AIMessage directly
   }
 
-  // No tool calls, return regular response
-  return typeof response.content === 'string'
-    ? response.content
-    : JSON.stringify(response.content);
+  // No tool calls, return the original response
+  return response; // Return the AIMessage directly
 }
 
-export async function callGemini(request: AIRequest): Promise<string> {
+export async function callGemini(_request: AIRequest): Promise<string> {
+  // TODO: Clean up and consolidate with callGeminiWithStream - remove duplicate tool initialization logic
+  throw new Error(
+    'callGemini is deprecated - use callGeminiWithStream instead'
+  );
+}
+
+export async function callGeminiWithStream(
+  request: StreamingAIRequest
+): Promise<string> {
   try {
     const allTools = [];
     if (!request.conversationId) {
@@ -150,83 +203,104 @@ export async function callGemini(request: AIRequest): Promise<string> {
     }
     const conversationId = request.conversationId;
 
+    // Send initial status
+    request.onProgress?.({ type: 'status', data: 'Initializing Gemini...' });
+
     // Try Slack
     if (request.slackToken) {
       try {
+        request.onProgress?.({
+          type: 'status',
+          data: 'Setting up Slack tools...',
+        });
         const slackClient = new SlackAPIClient({
           userToken: request.slackToken,
         });
-        const slackToolsInstance = new SlackTools(slackClient);
-        const slackTools = slackToolsInstance.getTools();
-
-        allTools.push(...slackTools);
+        const slackTools = new SlackTools(slackClient);
+        allTools.push(...slackTools.getTools());
       } catch (error) {
-        console.error('Failed to create Slack tools:', error);
+        console.error('Failed to initialize Slack tools:', error);
       }
     }
 
     // Try Azure
     if (request.azureToken) {
       try {
+        request.onProgress?.({
+          type: 'status',
+          data: 'Setting up Azure tools...',
+        });
         const azureClient = new AzureAPIClient({
           accessToken: request.azureToken,
         });
-        const azureToolsInstance = new AzureTools(azureClient);
-        const azureTools = azureToolsInstance.getTools();
-
-        allTools.push(...azureTools);
+        const azureTools = new AzureTools(azureClient);
+        allTools.push(...azureTools.getTools());
       } catch (error) {
-        console.error('Failed to create Azure tools:', error);
+        console.error('Failed to initialize Azure tools:', error);
       }
     }
 
     // Try Atlassian
     if (request.atlassianToken) {
       try {
+        request.onProgress?.({
+          type: 'status',
+          data: 'Setting up Atlassian tools...',
+        });
         const atlassianClient = new AtlassianAPIClient({
           accessToken: request.atlassianToken,
         });
-        const atlassianToolsInstance = new AtlassianTools(atlassianClient);
-        const atlassianTools = atlassianToolsInstance.getTools();
-
-        allTools.push(...atlassianTools);
+        const atlassianTools = new AtlassianTools(atlassianClient);
+        allTools.push(...atlassianTools.getTools());
       } catch (error) {
-        console.error('Failed to create Atlassian tools:', error);
+        console.error('Failed to initialize Atlassian tools:', error);
       }
     }
 
-    // If no tools loaded, return helpful message
     if (allTools.length === 0) {
-      return 'No external tools are connected. Please ensure at least one token (Slack, Azure, or Atlassian) is properly configured to access your data.';
+      throw new Error(
+        'No tools were successfully initialized. Please check your tokens.'
+      );
     }
 
     // Get conversation history
     const history = getConversationHistory(conversationId);
 
-    // Add current user message to history
+    // Add user message to history
     const userMessage = new HumanMessage(request.input);
     addToConversationHistory(conversationId, userMessage);
 
-    // Use LangChain ChatGoogleGenerativeAI with tools and message chain
-    const response = await chatGemini.invoke(
-      [createPromptEnhancementMessage(allTools), ...history, userMessage],
-      {
-        tools: allTools,
-      }
-    );
+    // Create the conversation context for Gemini
+    const conversationContext = [
+      createPromptEnhancementMessage(allTools),
+      ...history.slice(-10), // Keep last 10 messages for context
+    ];
+
+    request.onProgress?.({ type: 'status', data: 'Starting new query...' });
+
+    // Bind tools to the model
+    const geminiWithTools = chatGemini.bindTools(allTools);
+
+    // Get the response (which might include tool calls)
+    const response = await geminiWithTools.invoke(conversationContext);
+
+    // Add the AI response with tool_calls to conversation history
+    addToConversationHistory(conversationId, response);
 
     // Handle the response which may contain tool calls
-    const finalResponse = await processResponseWithTools(
+    const finalAIMessage = await processResponseWithTools(
       response,
       allTools,
-      request.input
+      conversationId,
+      request.onProgress
     );
 
-    // Add AI response to history
-    addToConversationHistory(conversationId, new AIMessage(finalResponse));
+    // Add final AI response to history
+    addToConversationHistory(conversationId, finalAIMessage);
 
-    return finalResponse;
+    return extractContentAsString(finalAIMessage);
   } catch (error) {
-    return `Error: ${error instanceof Error ? error.message : 'Failed to generate response'}`;
+    console.error('Gemini error:', error);
+    throw error;
   }
 }

@@ -17,7 +17,10 @@ import {
   getAtlassianTokenFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
-import { callAI, type AIProvider } from './services/llmService.js';
+import {
+  callAIWithStream,
+  type AIProvider,
+} from './services/llmService.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);
@@ -111,9 +114,9 @@ app.get(
   })
 );
 
-// AI API endpoint (supports OpenAI and Claude)
+// AI API endpoint with Server-Sent Events (SSE) for streaming progress
 app.post(
-  '/api/ai/generate',
+  '/api/ai/stream',
   asyncHandler(async (req, res) => {
     // Bearer token authentication check
     verifyBearerToken(req);
@@ -126,7 +129,15 @@ app.post(
       });
     }
 
-    // Get tokens from cookies (optional - AI will work with at least one token)
+    // Set headers for SSE
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no', // Disable Nginx buffering
+    });
+
+    // Get tokens from cookies
     let slackToken: string | undefined;
     let azureToken: string | undefined;
     let atlassianToken: string | undefined;
@@ -134,38 +145,49 @@ app.post(
     try {
       slackToken = getSlackTokenFromCookie(req);
     } catch {
-      // Slack token not available - that's fine if other tokens are available
+      // Slack token not available
     }
 
     try {
       azureToken = getAzureTokenFromCookie(req);
     } catch {
-      // Azure token not available - that's fine if other tokens are available
+      // Azure token not available
     }
 
     try {
       atlassianToken = getAtlassianTokenFromCookie(req);
     } catch {
-      // Atlassian token not available - that's fine if other tokens are available
+      // Atlassian token not available
     }
 
-    const output = await callAI({
-      input,
-      slackToken,
-      azureToken,
-      atlassianToken,
-      provider: provider as AIProvider,
-      conversationId,
-    });
+    // Progress callback function
+    const onProgress = (event: { type: string; data: any }) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
 
-    // Check if response starts with "Error:" to determine success
-    const isError = output.startsWith('Error:');
+    try {
+      const output = await callAIWithStream({
+        input,
+        slackToken,
+        azureToken,
+        atlassianToken,
+        provider: provider as AIProvider,
+        conversationId,
+        onProgress,
+      });
 
-    res.json({
-      success: !isError,
-      output: output,
-      error: isError ? output : undefined,
-    });
+      // Send final response
+      res.write(
+        `data: ${JSON.stringify({ type: 'complete', data: output })}\n\n`
+      );
+    } catch (error: any) {
+      // Send error
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', data: error.message || 'Unknown error' })}\n\n`
+      );
+    } finally {
+      res.end();
+    }
   })
 );
 
