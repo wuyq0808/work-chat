@@ -12,6 +12,11 @@
 - Let me know the build is complete and ready for testing
 - I will start the server when ready
 
+### Server Monitoring
+- Keep `npm run dev 2>&1 | tee server.log` running during development
+- Claude will monitor server.log for errors and debugging
+- If server is not running, Claude will tell the user to run it (will not start it automatically)
+
 ### Environment Tokens
 - Check the .env file for available tokens:
   - `OPENAI_API_KEY` - for OpenAI/GPT models
