@@ -131,10 +131,6 @@ For Slack and Email specifically:
 
     // Setup Slack tools
     if (request.slackToken) {
-      request.onProgress?.({
-        type: 'status',
-        data: 'Setting up Slack tools...',
-      });
       const slackClient = new SlackAPIClient({
         userToken: request.slackToken,
       });
@@ -144,10 +140,6 @@ For Slack and Email specifically:
 
     // Setup Azure tools
     if (request.azureToken) {
-      request.onProgress?.({
-        type: 'status',
-        data: 'Setting up Azure tools...',
-      });
       const azureClient = new AzureAPIClient({
         accessToken: request.azureToken,
       });
@@ -157,10 +149,6 @@ For Slack and Email specifically:
 
     // Setup Atlassian tools
     if (request.atlassianToken) {
-      request.onProgress?.({
-        type: 'status',
-        data: 'Setting up Atlassian tools...',
-      });
       const atlassianClient = new AtlassianAPIClient({
         accessToken: request.atlassianToken,
       });
@@ -201,53 +189,43 @@ For Slack and Email specifically:
     for (const toolCall of response.tool_calls) {
       const tool = tools.find(t => t.name === toolCall.name);
 
-      if (tool) {
-        // Send progress update for tool execution
-        onProgress?.({
-          type: 'tool_start',
-          data: {
-            tool: toolCall.name,
-
-            args: toolCall.args,
-          },
-        });
-
-        const result = await tool.invoke(toolCall.args);
-
-        // Send progress update for tool completion
-        onProgress?.({
-          type: 'tool_complete',
-          data: {
-            tool: toolCall.name,
-            result:
-              typeof result === 'string'
-                ? result.substring(0, 200) + (result.length > 200 ? '...' : '')
-                : 'Done',
-          },
-        });
-
-        // Truncate large tool results to prevent context length errors
-        const resultString = String(result);
-        const truncatedResult =
-          resultString.length > 50000
-            ? resultString.substring(0, 50000) +
-              '\n\n[Content truncated due to length...]'
-            : resultString;
-
-        toolMessages.push(
-          new ToolMessage({
-            content: truncatedResult,
-            tool_call_id: toolCall.id,
-          })
-        );
-      } else {
-        toolMessages.push(
-          new ToolMessage({
-            content: `Error: Tool ${toolCall.name} not found`,
-            tool_call_id: toolCall.id,
-          })
-        );
+      if (!tool) {
+        throw new Error(`Tool ${toolCall.name} not found`);
       }
+
+      // Send progress update for tool execution
+      onProgress?.({
+        type: 'tool_start',
+        data: {
+          tool: toolCall.name,
+          args: toolCall.args,
+        },
+      });
+
+      const result = await tool.invoke(toolCall.args);
+
+      // Send progress update for tool completion
+      onProgress?.({
+        type: 'tool_complete',
+        data: {
+          tool: toolCall.name,
+        },
+      });
+
+      // Truncate large tool results to prevent context length errors
+      const resultString = String(result);
+      const truncatedResult =
+        resultString.length > 50000
+          ? resultString.substring(0, 50000) +
+            '\n\n[Content truncated due to length...]'
+          : resultString;
+
+      toolMessages.push(
+        new ToolMessage({
+          content: truncatedResult,
+          tool_call_id: toolCall.id,
+        })
+      );
     }
 
     // Add tool messages to conversation history
@@ -260,10 +238,13 @@ For Slack and Email specifically:
 
     // Must bind tools when processing tool results
     const modelWithTools = this.chatModel.bindTools(tools);
+
+    onProgress?.({
+      type: 'ai_processing',
+      data: 'Processing with AI...',
+    });
     const finalResponse = await modelWithTools.invoke(currentHistory);
 
-    // IMPORTANT: Add this AI response to conversation history before recursive processing
-    // This ensures the conversation history is complete for multi-turn tool calling
     this.addToConversationHistory(conversationId, finalResponse);
 
     // Process the final response recursively to handle potential additional tool calls
@@ -277,9 +258,6 @@ For Slack and Email specifically:
 
   async handleChat(request: ChatRequest): Promise<string> {
     const { conversationId } = request;
-
-    // Send initial status
-    request.onProgress?.({ type: 'status', data: 'Initializing chat...' });
 
     // Setup tools
     const allTools = await this.setupTools(request);
@@ -306,13 +284,15 @@ For Slack and Email specifically:
 
     // Get the response (which might include tool calls)
     const currentHistory = this.getConversationHistory(conversationId);
+
+    request.onProgress?.({
+      type: 'ai_processing',
+      data: 'Processing with AI...',
+    });
     const response = await modelWithTools.invoke(currentHistory);
 
-    // Add the AI response to conversation history
-    // Always add AI responses that have tool calls or content
-    if (response.tool_calls?.length > 0 || this.hasContentText(response)) {
-      this.addToConversationHistory(conversationId, response);
-    }
+    this.addToConversationHistory(conversationId, response);
+
     // Skip responses with no content and no tool calls
 
     // Handle the response which may contain tool calls

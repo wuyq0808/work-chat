@@ -2,6 +2,35 @@
 <html>
 <head>
     <title>Slack AI Assistant</title>
+    <style>
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-dots::after {
+            content: '.';
+            animation: dots 1.5s steps(3, end) infinite;
+        }
+        
+        @keyframes dots {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+    </style>
 </head>
 <body>
     
@@ -31,7 +60,7 @@
     
     <div id="conversationSection" style="margin-bottom: 20px;">
         <p>
-            <button type="button" id="newConversationBtn">🔄 New Conversation</button>
+            <button type="button" id="newConversationBtn">New Conversation</button>
             <span id="conversationStatus" style="margin-left: 10px; color: #666;"></span>
         </p>
     </div>
@@ -45,26 +74,27 @@
             </select>
         </p>
         
-        <p>
-            <textarea id="message" rows="4" cols="50" placeholder="find something important recently" required>find something important recently</textarea>
-        </p>
+        <div style="position: relative; display: inline-block;">
+            <textarea id="message" rows="4" cols="50" placeholder="find something important recently" required 
+                style="padding-right: 50px;">find something important recently</textarea>
+            <button type="submit" id="submitBtn" 
+                style="position: absolute; right: 5px; top: 5px;">Send</button>
+        </div>
         
-        <p>
-            <button type="submit" id="submitBtn">Send</button>
-        </p>
     </form>
     
     <div id="response" style="display: none;">
         <hr>
-        <div id="progressStatus" style="color: #666; font-style: italic; margin-bottom: 10px;"></div>
         
         <!-- Tool Call History Section -->
-        <details id="toolHistorySection" style="margin-bottom: 15px;">
+        <details id="toolHistorySection" style="margin-bottom: 10px;">
             <summary style="cursor: pointer; font-size: 14px; color: #666;">Tools Called</summary>
-            <div id="toolHistoryList" style="margin-top: 5px; padding: 5px; background-color: #f9f9f9; border-radius: 3px; max-height: 200px; overflow-y: auto; font-size: 12px;">
+            <div id="toolHistoryList" style="margin-top: 3px; padding: 3px; max-height: 150px; overflow-y: auto;">
                 <!-- Tool calls will be added here dynamically -->
             </div>
         </details>
+        
+        <div id="progressStatus" style="color: #666; font-style: italic; margin-bottom: 10px;"></div>
         
         <pre id="responseContent"></pre>
     </div>
@@ -115,7 +145,7 @@
         function updateToolHistory() {
             const toolHistoryList = document.getElementById('toolHistoryList');
             if (toolCallHistory.length === 0) {
-                toolHistoryList.innerHTML = '<div style="color: #666; font-style: italic;">No tool calls yet</div>';
+                toolHistoryList.innerHTML = '<div style="color: #666; font-style: italic; font-size: 12px;">Not yet</div>';
                 return;
             }
             
@@ -125,26 +155,21 @@
                     const argPairs = Object.entries(tc.args)
                         .map(([key, value]) => `${key}: ${value}`)
                         .join(', ');
-                    argDisplay = `(${argPairs})`;
+                    argDisplay = ` (${argPairs})`;
                 }
                 
-                let resultDisplay = '';
-                if (tc.result && tc.status === 'completed') {
-                    const truncatedResult = typeof tc.result === 'string' ? 
-                        (tc.result.length > 100 ? tc.result.substring(0, 100) + '...' : tc.result) : 
-                        'Done';
-                    resultDisplay = `<div style="margin-top: 5px; font-size: 0.9em; color: #666;">Result: ${truncatedResult}</div>`;
+                let statusIcon = '';
+                if (tc.status === 'completed') {
+                    statusIcon = ' <span style="color: #28a745; font-weight: normal;">✓</span>';
+                } else if (tc.status === 'running') {
+                    statusIcon = ' <span class="loading-spinner" style="width: 10px; height: 10px; border-width: 1px;"></span>';
+                } else if (tc.status === 'error') {
+                    statusIcon = ' <span style="color: #dc3545; font-weight: normal;">✗</span>';
                 }
                 
-                if (tc.error && tc.status === 'error') {
-                    resultDisplay = `<div style="margin-top: 5px; font-size: 0.9em; color: #d32f2f;">Error: ${tc.error}</div>`;
-                }
                 
                 return `
-                    <div style="margin-bottom: 5px; padding: 5px; background-color: white; border-radius: 2px;">
-                        <div style="font-weight: 500;">${tc.tool}${argDisplay}</div>
-                        ${resultDisplay}
-                    </div>
+                    <div style="margin-bottom: 2px; font-size: 12px;">${tc.tool}${argDisplay}${statusIcon}</div>
                 `;
             }).join('');
         }
@@ -176,7 +201,7 @@
             // Replace install button with compact connected status
             const userInfo = document.createElement('span');
             userInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f0ff; border-radius: 3px; color: #0078d4; font-size: 14px; vertical-align: middle;';
-            userInfo.innerHTML = `<strong>✅ Azure</strong>`;
+            userInfo.innerHTML = `<strong>Azure Connected</strong>`;
             document.getElementById('azureInstall').replaceWith(userInfo);
         }
         
@@ -185,7 +210,7 @@
             // Replace install button with compact connected status
             const teamInfo = document.createElement('span');
             teamInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f5e8; border-radius: 3px; color: #2eb886; font-size: 14px; vertical-align: middle;';
-            teamInfo.innerHTML = `<strong>✅ Slack</strong>`;
+            teamInfo.innerHTML = `<strong>Slack Connected</strong>`;
             document.getElementById('slackInstall').replaceWith(teamInfo);
         }
         
@@ -194,11 +219,15 @@
             // Replace install button with compact connected status
             const userInfo = document.createElement('span');
             userInfo.style.cssText = 'display: inline-block; margin-right: 10px; padding: 8px 12px; background-color: #e8f4ff; border-radius: 3px; color: #0052cc; font-size: 14px; vertical-align: middle;';
-            userInfo.innerHTML = `<strong>✅ Atlassian</strong>`;
+            userInfo.innerHTML = `<strong>Atlassian Connected</strong>`;
             document.getElementById('atlassianInstall').replaceWith(userInfo);
         }
         
         async function sendMessage() {
+            // Clear tool history for each new request
+            toolCallHistory = [];
+            updateToolHistory();
+            
             const slackToken = slackTokenFromCookie;
             const message = document.getElementById('message').value;
             const provider = document.getElementById('provider').value;
@@ -210,10 +239,9 @@
             if (!message.trim()) return;
             
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Sending...';
             responseDiv.style.display = 'block';
             responseContent.textContent = '';
-            progressStatus.textContent = 'Initializing...';
+            progressStatus.innerHTML = 'AI processing<span class="loading-dots"></span>';
             
             
             try {
@@ -262,29 +290,36 @@
                                         progressStatus.textContent = data.data;
                                         break;
                                         
+                                    case 'ai_processing':
+                                        progressStatus.innerHTML = 'AI processing<span class="loading-dots"></span>';
+                                        break;
+                                        
                                     case 'tool_start':
-                                        let toolDisplay = data.data.tool;
-                                        if (data.data.args && Object.keys(data.data.args).length > 0) {
-                                            const argPairs = Object.entries(data.data.args)
-                                                .map(([key, value]) => `${key}: ${value}`)
-                                                .join(', ');
-                                            toolDisplay = `${data.data.tool}(${argPairs})`;
-                                        }
-                                        progressStatus.textContent = `🔧 Running ${toolDisplay}...`;
+                                        // Add to tool history and expand the section
                                         addToolCall(data.data.tool, data.data.args, 'running');
+                                        
+                                        // Expand the Tools Called section
+                                        document.getElementById('toolHistorySection').open = true;
+                                        
+                                        // Scroll to the bottom of the tool list to show newest call
+                                        const toolHistoryList = document.getElementById('toolHistoryList');
+                                        toolHistoryList.scrollTop = toolHistoryList.scrollHeight;
                                         break;
                                         
                                     case 'tool_complete':
-                                        progressStatus.textContent = `✅ ${data.data.tool} completed`;
-                                        addToolCall(data.data.tool, null, 'completed', data.data.result);
+                                        // Mark specific tool as completed
+                                        addToolCall(data.data.tool, null, 'completed');
                                         break;
                                         
                                     case 'tool_error':
-                                        progressStatus.textContent = `❌ ${data.data.tool} failed: ${data.data.error}`;
+                                        // Update tool history with error
                                         addToolCall(data.data.tool, null, 'error', null, data.data.error);
                                         break;
                                         
                                     case 'complete':
+                                        // Collapse the Tools Called section
+                                        document.getElementById('toolHistorySection').open = false;
+                                        
                                         responseContent.textContent = data.data;
                                         progressStatus.textContent = '';
                                         break;
@@ -306,7 +341,6 @@
                 progressStatus.textContent = '';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Send';
             }
         }
 
