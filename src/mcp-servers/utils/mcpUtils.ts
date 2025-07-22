@@ -25,11 +25,40 @@ export function getToolDefinitions(tools: StructuredTool[]): ToolDefinition[] {
   return tools.map(tool => ({
     name: tool.name,
     description: tool.description,
-    inputSchema:
-      'shape' in tool.schema
-        ? tool.schema.shape
-        : tool.schema._def.schema.shape,
+    inputSchema: extractSchemaShape(tool.schema),
   }));
+}
+
+/**
+ * Safely extract schema shape from Zod schema or JSON schema
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractSchemaShape(schema: any): any {
+  // Handle Zod schemas
+  if (schema && typeof schema === 'object') {
+    // Try direct shape access first
+    if ('shape' in schema) {
+      return schema.shape;
+    }
+
+    // Try _def.schema.shape for nested Zod schemas
+    if (schema._def?.schema?.shape) {
+      return schema._def.schema.shape;
+    }
+
+    // Try _def.shape for direct Zod object schemas
+    if (schema._def?.shape) {
+      return schema._def.shape;
+    }
+
+    // If it's already a JSON schema, return as-is
+    if (schema.type || schema.properties || schema.$ref) {
+      return schema;
+    }
+  }
+
+  // Fallback: return the schema as-is
+  return schema;
 }
 
 /**

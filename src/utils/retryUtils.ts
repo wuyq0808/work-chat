@@ -56,3 +56,12 @@ export function isGeminiPartsError(error: Error): boolean {
     )
   );
 }
+
+export function isBedrockThrottlingError(error: Error): boolean {
+  return (
+    error.message.includes('ThrottlingException') ||
+    error.message.includes('TooManyRequestsException') ||
+    error.message.includes('Rate limit') ||
+    error.message.includes('throttled')
+  );
+}

@@ -74,29 +74,19 @@ app.get(
     }
 
     // Check and refresh Atlassian token if needed
-    try {
-      const accessToken = req.cookies.atlassian_token;
-      const refreshToken = req.cookies.atlassian_refresh_token;
+    const accessToken = req.cookies.atlassian_token;
+    const refreshToken = req.cookies.atlassian_refresh_token;
 
-      // If we have a refresh token but no access token (expired), try to refresh
-      if (refreshToken && !accessToken) {
-        try {
-          const tokenResponse =
-            await atlassianOAuthService.refreshToken(refreshToken);
+    // If we have a refresh token but no access token (expired), try to refresh
+    if (refreshToken && !accessToken) {
+      const tokenResponse =
+        await atlassianOAuthService.refreshToken(refreshToken);
 
-          // Set new cookies using utility function
-          const isProduction = process.env.NODE_ENV === 'production';
-          const cookies = setAtlassianCookies(tokenResponse, isProduction);
+      // Set new cookies using utility function
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cookies = setAtlassianCookies(tokenResponse, isProduction);
 
-          res.setHeader('Set-Cookie', cookies);
-        } catch (error) {
-          console.warn('Failed to refresh Atlassian token:', error);
-          // Continue serving the page even if refresh fails
-        }
-      }
-    } catch (error) {
-      console.warn('Error checking Atlassian token:', error);
-      // Continue serving the page even if token check fails
+      res.setHeader('Set-Cookie', cookies);
     }
 
     res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -131,52 +121,32 @@ app.post(
     let azureToken: string | undefined;
     let atlassianToken: string | undefined;
 
-    try {
-      slackToken = getSlackTokenFromCookie(req);
-    } catch {
-      // Slack token not available
-    }
+    slackToken = getSlackTokenFromCookie(req) || undefined;
 
-    try {
-      azureToken = getAzureTokenFromCookie(req);
-    } catch {
-      // Azure token not available
-    }
+    azureToken = getAzureTokenFromCookie(req) || undefined;
 
-    try {
-      atlassianToken = getAtlassianTokenFromCookie(req);
-    } catch {
-      // Atlassian token not available
-    }
+    atlassianToken = getAtlassianTokenFromCookie(req) || undefined;
 
     // Progress callback function
     const onProgress = (event: { type: string; data: any }) => {
       res.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
-    try {
-      const output = await callAIWithStream({
-        input,
-        slackToken,
-        azureToken,
-        atlassianToken,
-        provider: provider as AIProvider,
-        conversationId,
-        onProgress,
-      });
+    const output = await callAIWithStream({
+      input,
+      slackToken,
+      azureToken,
+      atlassianToken,
+      provider: provider as AIProvider,
+      conversationId,
+      onProgress,
+    });
 
-      // Send final response
-      res.write(
-        `data: ${JSON.stringify({ type: 'complete', data: output })}\n\n`
-      );
-    } catch (error: any) {
-      // Send error
-      res.write(
-        `data: ${JSON.stringify({ type: 'error', data: error.message || 'Unknown error' })}\n\n`
-      );
-    } finally {
-      res.end();
-    }
+    // Send final response
+    res.write(
+      `data: ${JSON.stringify({ type: 'complete', data: output })}\n\n`
+    );
+    res.end();
   })
 );
 

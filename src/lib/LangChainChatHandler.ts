@@ -101,9 +101,29 @@ For Slack and Email specifically:
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
   private extractContentAsString(message: any): string {
-    return typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content);
+    if (typeof message.content === 'string') {
+      return message.content;
+    }
+
+    // Handle ChatBedrockConverse content format: array of content objects
+    if (Array.isArray(message.content)) {
+      return message.content
+        .map((item: any) => {
+          if (item.type === 'text' && item.text) {
+            return item.text;
+          }
+          return '';
+        })
+        .join('');
+    }
+
+    return JSON.stringify(message.content);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
+  private hasContentText(message: any): boolean {
+    const contentText = this.extractContentAsString(message);
+    return contentText.trim() !== '';
   }
 
   private async setupTools(request: ChatRequest): Promise<StructuredTool[]> {
@@ -111,53 +131,41 @@ For Slack and Email specifically:
 
     // Setup Slack tools
     if (request.slackToken) {
-      try {
-        request.onProgress?.({
-          type: 'status',
-          data: 'Setting up Slack tools...',
-        });
-        const slackClient = new SlackAPIClient({
-          userToken: request.slackToken,
-        });
-        const slackTools = new SlackTools(slackClient);
-        allTools.push(...slackTools.getTools());
-      } catch (error) {
-        console.error('Failed to initialize Slack tools:', error);
-      }
+      request.onProgress?.({
+        type: 'status',
+        data: 'Setting up Slack tools...',
+      });
+      const slackClient = new SlackAPIClient({
+        userToken: request.slackToken,
+      });
+      const slackTools = new SlackTools(slackClient);
+      allTools.push(...slackTools.getTools());
     }
 
     // Setup Azure tools
     if (request.azureToken) {
-      try {
-        request.onProgress?.({
-          type: 'status',
-          data: 'Setting up Azure tools...',
-        });
-        const azureClient = new AzureAPIClient({
-          accessToken: request.azureToken,
-        });
-        const azureTools = new AzureTools(azureClient);
-        allTools.push(...azureTools.getTools());
-      } catch (error) {
-        console.error('Failed to initialize Azure tools:', error);
-      }
+      request.onProgress?.({
+        type: 'status',
+        data: 'Setting up Azure tools...',
+      });
+      const azureClient = new AzureAPIClient({
+        accessToken: request.azureToken,
+      });
+      const azureTools = new AzureTools(azureClient);
+      allTools.push(...azureTools.getTools());
     }
 
     // Setup Atlassian tools
     if (request.atlassianToken) {
-      try {
-        request.onProgress?.({
-          type: 'status',
-          data: 'Setting up Atlassian tools...',
-        });
-        const atlassianClient = new AtlassianAPIClient({
-          accessToken: request.atlassianToken,
-        });
-        const atlassianTools = new AtlassianTools(atlassianClient);
-        allTools.push(...atlassianTools.getTools());
-      } catch (error) {
-        console.error('Failed to initialize Atlassian tools:', error);
-      }
+      request.onProgress?.({
+        type: 'status',
+        data: 'Setting up Atlassian tools...',
+      });
+      const atlassianClient = new AtlassianAPIClient({
+        accessToken: request.atlassianToken,
+      });
+      const atlassianTools = new AtlassianTools(atlassianClient);
+      allTools.push(...atlassianTools.getTools());
     }
 
     if (allTools.length === 0) {
@@ -178,141 +186,148 @@ For Slack and Email specifically:
     onProgress?: (event: { type: string; data: any }) => void
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Returns LangChain message which varies by model
   ): Promise<any> {
-    // Check if the response has tool calls
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      const toolMessages: ToolMessage[] = [];
+    const hasToolCalls = response.tool_calls && response.tool_calls.length > 0;
 
-      // Execute each tool call
-      for (const toolCall of response.tool_calls) {
-        const tool = tools.find(t => t.name === toolCall.name);
-
-        if (tool) {
-          try {
-            // Send progress update for tool execution
-            onProgress?.({
-              type: 'tool_start',
-              data: {
-                tool: toolCall.name,
-
-                args: toolCall.args,
-              },
-            });
-
-            const result = await tool.invoke(toolCall.args);
-
-            // Send progress update for tool completion
-            onProgress?.({
-              type: 'tool_complete',
-              data: {
-                tool: toolCall.name,
-                result:
-                  typeof result === 'string'
-                    ? result.substring(0, 200) +
-                      (result.length > 200 ? '...' : '')
-                    : 'Done',
-              },
-            });
-
-            toolMessages.push(
-              new ToolMessage({
-                content: result,
-                tool_call_id: toolCall.id,
-              })
-            );
-          } catch (error) {
-            // Send progress update for tool error
-            onProgress?.({
-              type: 'tool_error',
-              data: {
-                tool: toolCall.name,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              },
-            });
-
-            toolMessages.push(
-              new ToolMessage({
-                content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                tool_call_id: toolCall.id,
-              })
-            );
-          }
-        } else {
-          toolMessages.push(
-            new ToolMessage({
-              content: `Error: Tool ${toolCall.name} not found`,
-              tool_call_id: toolCall.id,
-            })
-          );
-        }
-      }
-
-      // Add tool messages to conversation history
-      toolMessages.forEach(toolMessage => {
-        this.addToConversationHistory(conversationId, toolMessage);
-      });
-
-      // Get updated conversation history and let the model process the tool results
-      const updatedHistory = this.getConversationHistory(conversationId);
-
-      onProgress?.({ type: 'status', data: 'Processing results...' });
-      const finalResponse = await this.chatModel.invoke(updatedHistory);
-
-      return finalResponse;
+    if (!hasToolCalls) {
+      // No tool calls, return the original response immediately
+      return response;
     }
 
-    // No tool calls, return the original response
-    return response;
+    response.tool_calls.forEach((_call: any, _index: number) => {});
+
+    const toolMessages: ToolMessage[] = [];
+
+    // Execute each tool call
+    for (const toolCall of response.tool_calls) {
+      const tool = tools.find(t => t.name === toolCall.name);
+
+      if (tool) {
+        // Send progress update for tool execution
+        onProgress?.({
+          type: 'tool_start',
+          data: {
+            tool: toolCall.name,
+
+            args: toolCall.args,
+          },
+        });
+
+        const result = await tool.invoke(toolCall.args);
+
+        // Send progress update for tool completion
+        onProgress?.({
+          type: 'tool_complete',
+          data: {
+            tool: toolCall.name,
+            result:
+              typeof result === 'string'
+                ? result.substring(0, 200) + (result.length > 200 ? '...' : '')
+                : 'Done',
+          },
+        });
+
+        // Truncate large tool results to prevent context length errors
+        const resultString = String(result);
+        const truncatedResult =
+          resultString.length > 50000
+            ? resultString.substring(0, 50000) +
+              '\n\n[Content truncated due to length...]'
+            : resultString;
+
+        toolMessages.push(
+          new ToolMessage({
+            content: truncatedResult,
+            tool_call_id: toolCall.id,
+          })
+        );
+      } else {
+        toolMessages.push(
+          new ToolMessage({
+            content: `Error: Tool ${toolCall.name} not found`,
+            tool_call_id: toolCall.id,
+          })
+        );
+      }
+    }
+
+    // Add tool messages to conversation history
+    toolMessages.forEach((toolMessage, _index) => {
+      this.addToConversationHistory(conversationId, toolMessage);
+    });
+
+    // Get current conversation history for the final response
+    const currentHistory = this.getConversationHistory(conversationId);
+
+    // Must bind tools when processing tool results
+    const modelWithTools = this.chatModel.bindTools(tools);
+    const finalResponse = await modelWithTools.invoke(currentHistory);
+
+    // IMPORTANT: Add this AI response to conversation history before recursive processing
+    // This ensures the conversation history is complete for multi-turn tool calling
+    this.addToConversationHistory(conversationId, finalResponse);
+
+    // Process the final response recursively to handle potential additional tool calls
+    return this.processResponseWithTools(
+      finalResponse,
+      tools,
+      conversationId,
+      onProgress
+    );
   }
 
   async handleChat(request: ChatRequest): Promise<string> {
-    try {
-      const { conversationId } = request;
+    const { conversationId } = request;
 
-      // Send initial status
-      request.onProgress?.({ type: 'status', data: 'Initializing chat...' });
+    // Send initial status
+    request.onProgress?.({ type: 'status', data: 'Initializing chat...' });
 
-      // Setup tools
-      const allTools = await this.setupTools(request);
+    // Setup tools
+    const allTools = await this.setupTools(request);
 
-      // Get conversation history
-      const history = this.getConversationHistory(conversationId);
+    // Get conversation history
+    const history = this.getConversationHistory(conversationId);
 
-      // Add user message to history
-      const userMessage = new HumanMessage(request.input);
-      this.addToConversationHistory(conversationId, userMessage);
-
-      // Create the conversation context
-      const conversationContext = [
-        this.createPromptEnhancementMessage(allTools),
-        ...history.slice(-10), // Keep last 10 messages for context
-      ];
-
-      request.onProgress?.({ type: 'status', data: 'Starting new query...' });
-
-      // Bind tools to the model
-      const modelWithTools = this.chatModel.bindTools(allTools);
-
-      // Get the response (which might include tool calls)
-      const response = await modelWithTools.invoke(conversationContext);
-
-      // Add the AI response with tool_calls to conversation history
-      this.addToConversationHistory(conversationId, response);
-
-      // Handle the response which may contain tool calls
-      const finalAIMessage = await this.processResponseWithTools(
-        response,
-        allTools,
+    // Add system message at the beginning if this is a new conversation
+    if (history.length === 0) {
+      this.addToConversationHistory(
         conversationId,
-        request.onProgress
+        this.createPromptEnhancementMessage(allTools)
       );
-
-      // Add final AI response to history
-      this.addToConversationHistory(conversationId, finalAIMessage);
-
-      return this.extractContentAsString(finalAIMessage);
-    } catch (error) {
-      console.error('Chat error:', error);
-      throw error;
     }
+
+    // Add user message to history
+    const userMessage = new HumanMessage(request.input);
+    this.addToConversationHistory(conversationId, userMessage);
+
+    request.onProgress?.({ type: 'status', data: 'Starting new query...' });
+
+    // Bind tools to the model
+    const modelWithTools = this.chatModel.bindTools(allTools);
+
+    // Get the response (which might include tool calls)
+    const currentHistory = this.getConversationHistory(conversationId);
+    const response = await modelWithTools.invoke(currentHistory);
+
+    // Add the AI response to conversation history
+    // Always add AI responses that have tool calls or content
+    if (response.tool_calls?.length > 0 || this.hasContentText(response)) {
+      this.addToConversationHistory(conversationId, response);
+    }
+    // Skip responses with no content and no tool calls
+
+    // Handle the response which may contain tool calls
+    const finalAIMessage = await this.processResponseWithTools(
+      response,
+      allTools,
+      conversationId,
+      request.onProgress
+    );
+
+    // Add final AI response to history only if it has meaningful content
+    if (this.hasContentText(finalAIMessage)) {
+      this.addToConversationHistory(conversationId, finalAIMessage);
+    }
+
+    return this.extractContentAsString(finalAIMessage);
   }
 }

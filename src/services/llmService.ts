@@ -1,4 +1,4 @@
-import { callClaudeBedrock } from '../llm-clients/claude-bedrock.js';
+import { createClaudeBedrockChatModel } from '../llm-clients/claude-bedrock.js';
 import { createGeminiChatModel } from '../llm-clients/gemini.js';
 import { LangChainChatHandler } from '../lib/LangChainChatHandler.js';
 
@@ -31,13 +31,23 @@ export async function callAIWithStream(
   }
 
   switch (provider) {
-    case 'claude-bedrock':
-      // For now, Claude Bedrock doesn't support streaming with progress
-      request.onProgress?.({
-        type: 'status',
-        data: 'Processing with Claude on AWS Bedrock...',
+    case 'claude-bedrock': {
+      // Use LangChainChatHandler for Claude Bedrock
+      if (!request.conversationId) {
+        throw new Error('conversationId is required for Claude Bedrock');
+      }
+
+      const claudeBedrockModel = createClaudeBedrockChatModel();
+      const claudeBedrockHandler = new LangChainChatHandler(claudeBedrockModel);
+      return claudeBedrockHandler.handleChat({
+        input: request.input,
+        slackToken: request.slackToken,
+        azureToken: request.azureToken,
+        atlassianToken: request.atlassianToken,
+        conversationId: request.conversationId,
+        onProgress: request.onProgress,
       });
-      return callClaudeBedrock(request);
+    }
     case 'gemini': {
       // Use LangChainChatHandler for Gemini
       if (!request.conversationId) {
