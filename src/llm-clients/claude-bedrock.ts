@@ -56,7 +56,7 @@ export async function callClaudeBedrock(request: AIRequest): Promise<string> {
         ...reasoningConfig,
       });
       response = await bedrockClient.send(command);
-    } catch (reasoningError) {
+    } catch {
       // If reasoning fails, try without it
       const command = new ConverseCommand(conversation);
       response = await bedrockClient.send(command);

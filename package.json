@@ -14,7 +14,6 @@
     "azure-mcp": "node dist/azure-mcp-stdio-server.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.56.0",
     "@aws-sdk/client-bedrock-runtime": "^3.848.0",
     "@google/genai": "^1.10.0",
     "@langchain/core": "0.3.43",
@@ -26,8 +25,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
-    "express": "^5.1.0",
-    "openai": "^5.9.0"
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
