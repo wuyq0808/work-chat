@@ -31,6 +31,7 @@
             66% { content: '...'; }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 </head>
 <body>
     
@@ -96,7 +97,7 @@
         
         <div id="progressStatus" style="color: #666; font-style: italic; margin-bottom: 10px;"></div>
         
-        <pre id="responseContent"></pre>
+        <div id="responseContent" style="font-family: inherit; line-height: 1.4;"></div>
     </div>
 
     <script>
@@ -320,7 +321,7 @@
                                         // Collapse the Tools Called section
                                         document.getElementById('toolHistorySection').open = false;
                                         
-                                        responseContent.textContent = data.data;
+                                        responseContent.innerHTML = marked.parse(data.data);
                                         progressStatus.textContent = '';
                                         break;
                                         
