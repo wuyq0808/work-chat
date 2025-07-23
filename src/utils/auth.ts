@@ -10,7 +10,6 @@ export class AuthError extends Error {
   }
 }
 
-
 export function getSlackTokenFromCookie(req: Request): string {
   // Get from HttpOnly cookie using cookie-parser
   const cookies =
@@ -34,4 +33,3 @@ export function getAtlassianTokenFromCookie(req: Request): string {
 
   return cookies.atlassian_token || '';
 }
-

@@ -34,7 +34,6 @@ export class SlackAPIClient {
     this.client = new WebClient(token);
   }
 
-
   async listChannels(
     cursor?: string,
     limit?: number

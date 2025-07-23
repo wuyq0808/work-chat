@@ -7,7 +7,6 @@ interface ConversationsHistoryArgs {
   limit?: number;
 }
 
-
 interface ConversationsRepliesArgs {
   channel_id: string;
   thread_ts: string;
@@ -69,7 +68,6 @@ export class SlackTools {
           }),
         }
       ),
-
 
       tool(
         async input =>
@@ -216,7 +214,6 @@ export class SlackTools {
       };
     }
   }
-
 
   private async handleConversationsReplies(
     args: ConversationsRepliesArgs

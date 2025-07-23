@@ -42,11 +42,10 @@ app.get('/azure/oauth_redirect', azureOAuthService.handleCallback);
 app.get('/atlassian/install', atlassianOAuthService.handleInstall);
 app.get('/atlassian/oauth_redirect', atlassianOAuthService.handleCallback);
 
-// Homepage route 
+// Homepage route
 app.get(
   '/',
   asyncHandler(async (req, res) => {
-
     // Check and refresh Atlassian token if needed
     const accessToken = req.cookies.atlassian_token;
     const refreshToken = req.cookies.atlassian_refresh_token;
@@ -71,7 +70,6 @@ app.get(
 app.post(
   '/api/ai/stream',
   asyncHandler(async (req, res) => {
-
     const { input, provider, conversationId } = req.body;
 
     if (!input) {
@@ -121,9 +119,6 @@ app.post(
     res.end();
   })
 );
-
-
-
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
