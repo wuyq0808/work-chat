@@ -46,16 +46,6 @@ export class AzureTools {
   private createTools(): StructuredTool[] {
     return [
       tool(
-        async _input => this.formatToolResponse(await this.handleGetProfile()),
-        {
-          name: 'azure__get_profile',
-          description:
-            'Get the current user profile information from Microsoft Graph',
-          schema: z.object({}),
-        }
-      ),
-
-      tool(
         async input =>
           this.formatToolResponse(await this.handleSearchEmail(input)),
         {
@@ -134,36 +124,6 @@ export class AzureTools {
   // Get LangChain-compatible tools
   getTools(): StructuredTool[] {
     return this.tools;
-  }
-
-  private async handleGetProfile(): Promise<ToolResponse> {
-    const profileResult = await this.azureClient.getProfile();
-
-    if (profileResult.success && profileResult.data) {
-      const profile = profileResult.data;
-      let content =
-        'id,displayName,userPrincipalName,mail,jobTitle,department,officeLocation\n';
-      content += `${profile.id},${profile.displayName},${profile.userPrincipalName},${profile.mail || ''},${profile.jobTitle || ''},${profile.department || ''},${profile.officeLocation || ''}\n`;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
-      };
-    } else {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error fetching profile: ${profileResult.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
   }
 
   private async handleSearchEmail(

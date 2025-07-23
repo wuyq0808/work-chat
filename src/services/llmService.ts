@@ -9,6 +9,8 @@ export interface AIRequest {
   slackToken?: string;
   azureToken?: string;
   atlassianToken?: string;
+  azureName?: string;
+  slackUserId?: string;
   provider?: AIProvider;
   conversationId?: string;
 }
@@ -44,6 +46,8 @@ export async function callAIWithStream(
         slackToken: request.slackToken,
         azureToken: request.azureToken,
         atlassianToken: request.atlassianToken,
+        azureName: request.azureName,
+        slackUserId: request.slackUserId,
         conversationId: request.conversationId,
         onProgress: request.onProgress,
       });
@@ -60,6 +64,8 @@ export async function callAIWithStream(
         slackToken: request.slackToken,
         azureToken: request.azureToken,
         atlassianToken: request.atlassianToken,
+        azureName: request.azureName,
+        slackUserId: request.slackUserId,
         conversationId: request.conversationId,
         onProgress: request.onProgress,
       });

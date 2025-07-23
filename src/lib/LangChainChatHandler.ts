@@ -27,6 +27,8 @@ export interface ChatRequest {
   azureToken?: string;
   atlassianToken?: string;
   conversationId: string;
+  azureName?: string;
+  slackUserId?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
   onProgress?: (event: { type: string; data: any }) => void;
 }
@@ -64,32 +66,42 @@ export class LangChainChatHandler {
   }
 
   private createPromptEnhancementMessage(
-    availableTools: StructuredTool[]
+    availableTools: StructuredTool[],
+    azureName?: string,
+    slackUserId?: string
   ): SystemMessage {
     const toolsList = availableTools
       .map(tool => `- ${tool.name}: ${tool.description}`)
       .join('\n');
 
+    // Build user context information
+    let userContextInfo = '';
+    if (azureName || slackUserId) {
+      userContextInfo = '\n## USER CONTEXT\n';
+      if (azureName) {
+        userContextInfo += `- Azure Name: ${azureName}\n`;
+      }
+      if (slackUserId) {
+        userContextInfo += `- Slack User ID: ${slackUserId}\n`;
+      }
+    }
+    
     return new SystemMessage(`You must help the user find needed information through the work communication tools and automatically enhance vague requests to provide useful results without asking for clarification.
 
+Current Date/Time: ${new Date().toISOString()}
+${userContextInfo}
 Available tools:
 ${toolsList}
 
 ## SEARCH STRATEGY
 For vague requests like "find me something" or "show me something important":
-- Find out who I am
-- First Use the Search tools to find 50 messages from Slack To/From me, and 50 Email for me, then use other tools to find details
-- Do not use keyword search, just search with time, focus on recent content from the last 2 weeks
+- Search with:<@MyUserID> 50 Slack messages, find out the channels of these messages, and the history of the channels to get to know my interest
+- NO KEYWORD SEARCH, just find latest
 - Prioritized Unread Slack Messages
+- Get 50 Emails, our tools only return short titles so please get many
+- Get 50 calendar events, our tools only return short titles so please get many
 
-For all requests:
-- Call multiple tools in a single response whenever possible.
-- Search across multiple platforms: Slack, Azure Email, Jira, Confluence
 
-## CONTENT PRIORITIZATION
-For Slack and Email specifically:
-- Questions or requests specifically addressed to you
-- Prioritize newer messages over older ones
 
 ## RESPONSE GUIDE
 - Provide summary if the found items are repetitive
@@ -98,6 +110,7 @@ For Slack and Email specifically:
 - Do not tell me my personal information
 - Display Name, not ID for Slack users and channels
 - Keep responses concise
+- Do not translate messages, response in their original language
 
 ## QUALITY ASSURANCE
 - Be persistent in finding relevant results before responding
@@ -302,7 +315,7 @@ For Slack and Email specifically:
     if (history.length === 0) {
       this.addToConversationHistory(
         conversationId,
-        this.createPromptEnhancementMessage(allTools)
+        this.createPromptEnhancementMessage(allTools, request.azureName, request.slackUserId)
       );
     }
 

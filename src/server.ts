@@ -10,6 +10,8 @@ import {
   getSlackTokenFromCookie,
   getAzureTokenFromCookie,
   getAtlassianTokenFromCookie,
+  getAzureUserNameFromCookie,
+  getSlackUserIdFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAIWithStream, type AIProvider } from './services/llmService.js';
@@ -97,6 +99,10 @@ app.post(
 
     atlassianToken = getAtlassianTokenFromCookie(req) || undefined;
 
+    // Extract user names from cookies
+    const azureName = getAzureUserNameFromCookie(req);
+    const slackUserId = getSlackUserIdFromCookie(req);
+
     // Progress callback function
     const onProgress = (event: { type: string; data: any }) => {
       res.write(`data: ${JSON.stringify(event)}\n\n`);
@@ -107,6 +113,8 @@ app.post(
       slackToken,
       azureToken,
       atlassianToken,
+      azureName,
+      slackUserId,
       provider: provider as AIProvider,
       conversationId,
       onProgress,

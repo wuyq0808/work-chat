@@ -43,16 +43,6 @@ export class SlackTools {
     return [
       tool(
         async input =>
-          this.formatToolResponse(await this.handleAuthTest(input)),
-        {
-          name: 'slack__auth_test',
-          description:
-            'Get current authenticated user information and team details',
-          schema: z.object({}),
-        }
-      ),
-      tool(
-        async input =>
           this.formatToolResponse(await this.handleConversationsHistory(input)),
         {
           name: 'slack__conversations_history',
@@ -97,7 +87,7 @@ export class SlackTools {
           name: 'slack__search_messages',
           description: 'Search for messages across Slack workspace',
           schema: z.object({
-            query: z.string().describe('Search query text'),
+            query: z.string().describe('Search query text with operators: from:@username or from:<@UserID> (messages from user), to:@username or to:<@UserID> (messages to user), with:@username or with:<@UserID> (conversations involving user), in:channel_name (specific channel), has:file/link/image, before:YYYY-MM-DD, after:YYYY-MM-DD. Examples: "from:@john project" or "from:<@U1234567> meeting"'),
             count: z
               .number()
               .optional()
@@ -129,37 +119,6 @@ export class SlackTools {
   // Get LangChain-compatible tools
   getTools(): StructuredTool[] {
     return this.tools;
-  }
-
-  private async handleAuthTest(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    args: Record<string, never>
-  ): Promise<ToolResponse> {
-    const authResult = await this.slackClient.getAuthTest();
-
-    if (authResult.success && authResult.data) {
-      const data = authResult.data;
-      const content = `ok,url,team,user,team_id,user_id,bot_id\n${data.ok},${data.url},${data.team},${data.user},${data.team_id},${data.user_id},${data.bot_id || ''}`;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
-      };
-    } else {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error getting auth test: ${authResult.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
   }
 
   private async handleConversationsHistory(

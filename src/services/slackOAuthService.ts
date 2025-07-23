@@ -78,6 +78,7 @@ export class SlackOAuthService {
         // Get user token from installation
         const userToken = installation.user?.token;
         const teamName = installation.team?.name;
+        const userId = installation.user?.id;
 
         if (userToken) {
           // Set secure HttpOnly cookies for token and team info
@@ -93,6 +94,9 @@ export class SlackOAuthService {
           const cookies = [secureCookieString('slack_token', userToken)];
           if (teamName) {
             cookies.push(regularCookieString('team_name', teamName));
+          }
+          if (userId) {
+            cookies.push(regularCookieString('slack_user_id', userId));
           }
           res.setHeader('Set-Cookie', cookies);
 

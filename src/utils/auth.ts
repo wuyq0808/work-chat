@@ -33,3 +33,17 @@ export function getAtlassianTokenFromCookie(req: Request): string {
 
   return cookies.atlassian_token || '';
 }
+
+export function getAzureUserNameFromCookie(req: Request): string | undefined {
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
+  
+  return cookies.azure_user_name || undefined;
+}
+
+export function getSlackUserIdFromCookie(req: Request): string | undefined {
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
+  
+  return cookies.slack_user_id || undefined;
+}
