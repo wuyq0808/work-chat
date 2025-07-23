@@ -18,7 +18,7 @@ import {
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAIWithStream, type AIProvider } from './services/llmService.js';
-import { setAtlassianCookies } from './utils/cookieUtils.js';
+import { setAtlassianCookies } from './utils/cookie-utils.js';
 // Simple HTTP MCP server - no SDK transport needed
 
 const __filename = fileURLToPath(import.meta.url);

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { SlackAPIClient, type SlackConfig } from './slack-client.js';
 import { SlackTools } from './slack-tools.js';
-import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
+import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
 export class SlackStreamableMCPServer {
   private slackClient: SlackAPIClient | null = null;

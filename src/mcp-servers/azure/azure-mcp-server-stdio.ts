@@ -5,7 +5,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { AzureAPIClient } from './azure-client.js';
 import { AzureTools } from './azure-tools.js';
-import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
+import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
 export class AzureMCPStdioServer {
   private azureClient: AzureAPIClient;

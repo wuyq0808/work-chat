@@ -8,7 +8,7 @@ import {
   type AtlassianConfig,
 } from './atlassian-client.js';
 import { AtlassianTools } from './atlassian-tools.js';
-import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
+import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
 export class AtlassianMCPStdioServer {
   private atlassianClient: AtlassianAPIClient;

@@ -1,6 +1,6 @@
 import { ChatBedrockConverse } from '@langchain/aws';
 import type { AIRequest } from '../services/llmService.js';
-import { withRetry, isBedrockThrottlingError } from '../utils/retryUtils.js';
+import { withRetry, isBedrockThrottlingError } from '../utils/retry-utils.js';
 import {
   BedrockRuntimeClient,
   ConverseCommand,

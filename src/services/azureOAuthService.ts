@@ -3,7 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   accessTokenCookieString,
   regularCookieString,
-} from '../utils/cookieUtils.js';
+} from '../utils/cookie-utils.js';
 
 interface AzureTokenResponse {
   access_token: string;

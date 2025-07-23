@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { setAtlassianCookies } from '../utils/cookieUtils.js';
+import { setAtlassianCookies } from '../utils/cookie-utils.js';
 import type { AtlassianTokenResponse } from '../types/atlassian.js';
 
 export class AtlassianOAuthService {

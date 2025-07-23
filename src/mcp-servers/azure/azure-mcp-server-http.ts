@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { AzureAPIClient, type AzureConfig } from './azure-client.js';
 import { AzureTools } from './azure-tools.js';
-import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
+import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
 export class AzureStreamableMCPServer {
   private azureClient: AzureAPIClient | null = null;

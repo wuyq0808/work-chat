@@ -1,6 +1,6 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import type { AIRequest } from '../services/llmService.js';
-import { withRetry, isGeminiPartsError } from '../utils/retryUtils.js';
+import { withRetry, isGeminiPartsError } from '../utils/retry-utils.js';
 
 // Create a wrapper that implements retry logic for Gemini
 class RetryableGeminiChat {

@@ -5,7 +5,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { SlackAPIClient, type SlackConfig } from './slack-client.js';
 import { SlackTools } from './slack-tools.js';
-import { getToolDefinitions, executeTool } from '../utils/mcpUtils.js';
+import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
 export class SlackMCPStdioServer {
   private slackClient: SlackAPIClient;
