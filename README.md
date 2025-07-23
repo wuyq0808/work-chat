@@ -25,7 +25,6 @@ mshell_login_and_set_env() {
     $(eval $SAML_CMD)
 }
 
-# Run before using the assistant:
 mshell_login_and_set_env
 ```
 
@@ -44,3 +43,7 @@ cp .env.example .env
 npm run dev
 # Runs at http://localhost:3000
 ```
+
+## Privacy Policy
+
+See our [Privacy Policy](privacy-policy.md) for information about data collection and usage.
