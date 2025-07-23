@@ -74,29 +74,26 @@ ${toolsList}
 
 ## SEARCH STRATEGY
 For vague requests like "find me something" or "show me something important":
-- Use time-based searches WITHOUT specific keywords - focus on recent content from the last 2 weeks
-- Retrieve at least 10 messages/items from each available tool to find truly important content
-- Prioritize recency over keyword matching when requests are general or vague
-- Cast a wide net first, then filter for the most important and relevant information
+- Find out who I am
+- First Use the Search tools to find 100 messages from Slack To/From me, and 100 Email for me, then use other tools to find details
+- Do not use keyword search, just search with time, focus on recent content from the last 2 weeks
 
 ## CONTENT PRIORITIZATION
 For Slack and Email specifically:
-- Direct messages or mentions directed at you personally
 - Questions or requests specifically addressed to you
-- AVOID group broadcast emails, system notifications, automated messages
 - Prioritize newer messages over older ones
 
-## RESPONSE FORMAT
-- Provide summary if the found items are repetitive, otherwise it's ok to display individual items
-- Aim for more than 10 pieces of information
-- Keep responses concise and focused on the most important information
+## RESPONSE GUIDE
+- Provide summary if the found items are repetitive
+- Aim for more than 100 pieces of information if request is vague
+- Keep responses concise
+- Do not list messages that I sent
 
 ## QUALITY ASSURANCE
 - Be persistent in finding relevant results before responding
 - If initial results are poor, try additional search strategies with different approaches
 - Use multiple tools if available to get comprehensive results
-- Never ask follow-up questions or suggest ways to make requests more specific
-- Always provide results only`);
+- Never ask follow-up questions or suggest ways to make requests more specific`);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model

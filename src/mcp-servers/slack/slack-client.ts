@@ -34,40 +34,6 @@ export class SlackAPIClient {
     this.client = new WebClient(token);
   }
 
-  async getUsers(): Promise<ApiResponse<Member[]>> {
-    try {
-      const result = await this.client.users.list({
-        limit: 1000,
-      });
-
-      if (!result.ok || !result.members) {
-        return {
-          success: false,
-          error: 'Failed to fetch users from Slack API',
-        };
-      }
-
-      this.usersCache.clear();
-      this.usersInvCache.clear();
-
-      for (const member of result.members) {
-        if (member.id && member.name) {
-          this.usersCache.set(member.id, member);
-          this.usersInvCache.set(member.name, member.id);
-        }
-      }
-
-      return {
-        success: true,
-        data: Array.from(this.usersCache.values()),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
 
   async listChannels(
     cursor?: string,
@@ -349,5 +315,46 @@ export class SlackAPIClient {
 
   getChannelInfo(channelId: string): Channel | undefined {
     return this.channelsCache.get(channelId);
+  }
+
+  async getAuthTest(): Promise<
+    ApiResponse<{
+      ok: boolean;
+      url: string;
+      team: string;
+      user: string;
+      team_id: string;
+      user_id: string;
+      bot_id?: string;
+    }>
+  > {
+    try {
+      const result = await this.client.auth.test();
+
+      if (!result.ok) {
+        return {
+          success: false,
+          error: 'Failed to authenticate with Slack API',
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          ok: result.ok,
+          url: result.url || '',
+          team: result.team || '',
+          user: result.user || '',
+          team_id: result.team_id || '',
+          user_id: result.user_id || '',
+          bot_id: result.bot_id,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 }

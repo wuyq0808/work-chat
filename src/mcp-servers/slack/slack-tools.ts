@@ -7,10 +7,6 @@ interface ConversationsHistoryArgs {
   limit?: number;
 }
 
-interface ChannelsListArgs {
-  cursor?: string;
-  limit?: number;
-}
 
 interface ConversationsRepliesArgs {
   channel_id: string;
@@ -48,6 +44,16 @@ export class SlackTools {
     return [
       tool(
         async input =>
+          this.formatToolResponse(await this.handleAuthTest(input)),
+        {
+          name: 'slack__auth_test',
+          description:
+            'Get current authenticated user information and team details',
+          schema: z.object({}),
+        }
+      ),
+      tool(
+        async input =>
           this.formatToolResponse(await this.handleConversationsHistory(input)),
         {
           name: 'slack__conversations_history',
@@ -64,22 +70,6 @@ export class SlackTools {
         }
       ),
 
-      tool(
-        async input =>
-          this.formatToolResponse(await this.handleChannelsList(input)),
-        {
-          name: 'slack__channels_list',
-          description:
-            'List all accessible Slack channels with pagination support',
-          schema: z.object({
-            cursor: z.string().optional().describe('Pagination cursor'),
-            limit: z
-              .number()
-              .optional()
-              .describe('Number of channels (default: 10, max: 100)'),
-          }),
-        }
-      ),
 
       tool(
         async input =>
@@ -143,6 +133,37 @@ export class SlackTools {
     return this.tools;
   }
 
+  private async handleAuthTest(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    args: Record<string, never>
+  ): Promise<ToolResponse> {
+    const authResult = await this.slackClient.getAuthTest();
+
+    if (authResult.success && authResult.data) {
+      const data = authResult.data;
+      const content = `ok,url,team,user,team_id,user_id,bot_id\n${data.ok},${data.url},${data.team},${data.user},${data.team_id},${data.user_id},${data.bot_id || ''}`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: content,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting auth test: ${authResult.error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   private async handleConversationsHistory(
     args: ConversationsHistoryArgs
   ): Promise<ToolResponse> {
@@ -196,42 +217,6 @@ export class SlackTools {
     }
   }
 
-  private async handleChannelsList(
-    args: ChannelsListArgs
-  ): Promise<ToolResponse> {
-    const { cursor, limit } = args;
-
-    const channelsResult = await this.slackClient.getChannels(cursor, limit);
-
-    if (channelsResult.success && channelsResult.data) {
-      let content = 'id,name,is_private,is_member\n';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      channelsResult.data.forEach((channel: any) => {
-        // Slack API channel format varies by subscription type
-        content += `${channel.id},${channel.name || 'unnamed'},${channel.is_private || false},${channel.is_member || false}\n`;
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
-        nextCursor: channelsResult.nextCursor,
-      };
-    } else {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error fetching channels: ${channelsResult.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
 
   private async handleConversationsReplies(
     args: ConversationsRepliesArgs
@@ -304,8 +289,6 @@ export class SlackTools {
   ): Promise<ToolResponse> {
     const { query, count = 20, sort = 'timestamp', sort_dir = 'desc' } = args;
 
-    await this.slackClient.getChannels();
-
     const searchResult = await this.slackClient.searchMessages({
       query,
       count,
@@ -317,9 +300,8 @@ export class SlackTools {
       let content = 'userName,text,time,channel\n';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       searchResult.data.forEach((msg: any) => {
-        // Slack search API returns dynamic message formats
-        const channelInfo = this.slackClient?.getChannelInfo(msg.channel);
-        const channelName = channelInfo?.name || msg.channel;
+        // Slack search API returns dynamic message formats with channel name included
+        const channelName = msg.channel?.name || msg.channel;
         content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName}\n`;
       });
 
