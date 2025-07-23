@@ -14,6 +14,15 @@ interface GetCalendarEventsArgs {
   end_time?: string;
 }
 
+interface GetEmailContentArgs {
+  messageId: string;
+}
+
+interface SearchEmailArgs {
+  query?: string;
+  limit?: number;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -47,20 +56,19 @@ export class AzureTools {
 
       tool(
         async input =>
-          this.formatToolResponse(await this.handleGetMessages(input)),
+          this.formatToolResponse(await this.handleSearchEmail(input)),
         {
-          name: 'azure__get_messages',
-          description: 'Get messages from Outlook/Exchange',
+          name: 'azure__search_email',
+          description: 'Search emails by keyword or get newest emails by time (returns summaries only)',
           schema: z.object({
+            query: z
+              .string()
+              .optional()
+              .describe('Search keyword to find in email content. If not provided, returns newest emails by time'),
             limit: z
               .number()
               .optional()
-              .describe('Number of messages to retrieve (default: 10)'),
-            filter: z
-              .string()
-              .optional()
-              .describe('OData filter expression (e.g., "isRead eq false")'),
-            search: z.string().optional().describe('Search query for messages'),
+              .describe('Number of emails to retrieve (default: 25)'),
           }),
         }
       ),
@@ -84,6 +92,20 @@ export class AzureTools {
               .string()
               .optional()
               .describe('End time filter (ISO 8601 format)'),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(await this.handleGetEmailContent(input)),
+        {
+          name: 'azure__get_email_content',
+          description: 'Get full content of a specific email by message ID',
+          schema: z.object({
+            messageId: z
+              .string()
+              .describe('The message ID of the email to retrieve full content for'),
           }),
         }
       ),
@@ -138,21 +160,20 @@ export class AzureTools {
     }
   }
 
-  private async handleGetMessages(
-    args: GetMessagesArgs
+  private async handleSearchEmail(
+    args: SearchEmailArgs
   ): Promise<ToolResponse> {
-    const { limit = 10, filter, search } = args;
+    const { query, limit = 25 } = args;
 
-    const messagesResult = await this.azureClient.getMessages({
+    const searchResult = await this.azureClient.searchEmails({
+      query,
       limit,
-      filter,
-      search,
     });
 
-    if (messagesResult.success && messagesResult.data) {
+    if (searchResult.success && searchResult.data) {
       let content =
-        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
-      messagesResult.data.forEach(msg => {
+        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,summary\n';
+      searchResult.data.forEach(msg => {
         content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${msg.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
       });
 
@@ -169,7 +190,7 @@ export class AzureTools {
         content: [
           {
             type: 'text',
-            text: `Error fetching messages: ${messagesResult.error}`,
+            text: `Error searching emails: ${searchResult.error}`,
           },
         ],
         isError: true,
@@ -209,6 +230,42 @@ export class AzureTools {
           {
             type: 'text',
             text: `Error fetching calendar events: ${eventsResult.error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetEmailContent(
+    args: GetEmailContentArgs
+  ): Promise<ToolResponse> {
+    const { messageId } = args;
+
+    const emailResult = await this.azureClient.getEmailContent({
+      messageId,
+    });
+
+    if (emailResult.success && emailResult.data) {
+      const msg = emailResult.data;
+      let content =
+        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
+      content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${msg.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: content,
+          },
+        ],
+      };
+    } else {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error fetching email content: ${emailResult.error}`,
           },
         ],
         isError: true,

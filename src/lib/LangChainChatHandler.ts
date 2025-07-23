@@ -15,7 +15,10 @@ import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
 export interface ChatModel {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain response types vary by model
   invoke(messages: BaseMessage[]): Promise<any>;
-  bindTools(tools: StructuredTool[]): ChatModel;
+  bindTools(
+    tools: StructuredTool[],
+    options?: { parallel_tool_calls?: boolean }
+  ): ChatModel;
 }
 
 export interface ChatRequest {
@@ -179,52 +182,79 @@ For Slack and Email specifically:
       return response;
     }
 
-    response.tool_calls.forEach((_call: any, _index: number) => {});
+    // Log the number of tools being executed in parallel
+    console.log(`🔧 Executing ${response.tool_calls.length} tools in parallel: ${response.tool_calls.map((tc: any) => tc.name).join(', ')}`);
+    
+    // Execute all tool calls in parallel using Promise.all
+    const toolResults = await Promise.all(
+      response.tool_calls.map(async (toolCall: any) => {
+        const tool = tools.find(t => t.name === toolCall.name);
 
-    const toolMessages: ToolMessage[] = [];
+        if (!tool) {
+          const error = `Tool ${toolCall.name} not found`;
+          onProgress?.({
+            type: 'tool_error',
+            data: {
+              tool: toolCall.name,
+              error,
+            },
+          });
+          return { toolCall, result: null, error };
+        }
 
-    // Execute each tool call
-    for (const toolCall of response.tool_calls) {
-      const tool = tools.find(t => t.name === toolCall.name);
+        // Send progress update for tool execution start
+        onProgress?.({
+          type: 'tool_start',
+          data: {
+            tool: toolCall.name,
+            args: toolCall.args,
+          },
+        });
 
-      if (!tool) {
-        throw new Error(`Tool ${toolCall.name} not found`);
-      }
+        try {
+          const result = await tool.invoke(toolCall.args);
 
-      // Send progress update for tool execution
-      onProgress?.({
-        type: 'tool_start',
-        data: {
-          tool: toolCall.name,
-          args: toolCall.args,
-        },
-      });
+          // Send progress update for tool completion
+          onProgress?.({
+            type: 'tool_complete',
+            data: {
+              tool: toolCall.name,
+            },
+          });
 
-      const result = await tool.invoke(toolCall.args);
+          return { toolCall, result, error: null };
+        } catch (error) {
+          // Send progress update for tool error
+          onProgress?.({
+            type: 'tool_error',
+            data: {
+              tool: toolCall.name,
+              error: String(error),
+            },
+          });
 
-      // Send progress update for tool completion
-      onProgress?.({
-        type: 'tool_complete',
-        data: {
-          tool: toolCall.name,
-        },
-      });
+          return { toolCall, result: null, error: String(error) };
+        }
+      })
+    );
 
-      // Truncate large tool results to prevent context length errors
-      const resultString = String(result);
-      const truncatedResult =
-        resultString.length > 50000
-          ? resultString.substring(0, 50000) +
-            '\n\n[Content truncated due to length...]'
-          : resultString;
+    // Convert results to ToolMessages
+    const toolMessages: ToolMessage[] = toolResults.map(
+      ({ toolCall, result, error }) => {
+        let content: string;
 
-      toolMessages.push(
-        new ToolMessage({
-          content: truncatedResult,
+        if (error) {
+          content = `Error executing ${toolCall.name}: ${error}`;
+        } else {
+          content = String(result);
+        }
+
+        return new ToolMessage({
+          content,
           tool_call_id: toolCall.id,
-        })
-      );
-    }
+        });
+      }
+    );
 
     // Add tool messages to conversation history
     toolMessages.forEach((toolMessage, _index) => {
@@ -234,8 +264,10 @@ For Slack and Email specifically:
     // Get current conversation history for the final response
     const currentHistory = this.getConversationHistory(conversationId);
 
-    // Must bind tools when processing tool results
-    const modelWithTools = this.chatModel.bindTools(tools);
+    // Must bind tools when processing tool results with parallel execution enabled
+    const modelWithTools = this.chatModel.bindTools(tools, {
+      parallel_tool_calls: true,
+    });
 
     onProgress?.({
       type: 'ai_processing',
@@ -277,8 +309,10 @@ For Slack and Email specifically:
 
     request.onProgress?.({ type: 'status', data: 'Starting new query...' });
 
-    // Bind tools to the model
-    const modelWithTools = this.chatModel.bindTools(allTools);
+    // Bind tools to the model with parallel execution enabled
+    const modelWithTools = this.chatModel.bindTools(allTools, {
+      parallel_tool_calls: true,
+    });
 
     // Get the response (which might include tool calls)
     const currentHistory = this.getConversationHistory(conversationId);

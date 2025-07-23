@@ -180,4 +180,131 @@ export class AzureAPIClient {
       };
     }
   }
+
+  async getEmailContent(options: {
+    messageId: string;
+  }): Promise<ApiResponse<AzureMessage>> {
+    try {
+      console.log('📧 Fetching email content for:', options.messageId);
+      
+      const fullMessage = await this.client.api(`/me/messages/${options.messageId}`).get();
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const message: AzureMessage = {
+        id: fullMessage.id,
+        subject: fullMessage.subject || '',
+        body: fullMessage.body?.content || '',
+        from: fullMessage.from?.emailAddress?.address || '',
+        toRecipients:
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          fullMessage.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+        receivedDateTime: fullMessage.receivedDateTime || '',
+        importance: fullMessage.importance || 'normal',
+        isRead: fullMessage.isRead || false,
+      };
+
+      console.log(`✅ Fetched email ${options.messageId}, body length: ${message.body.length}`);
+
+      return {
+        success: true,
+        data: message,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch email content',
+      };
+    }
+  }
+
+  async searchEmails(options: {
+    query?: string;
+    limit?: number;
+  }): Promise<ApiResponse<AzureMessage[]>> {
+    try {
+      console.log('🔍 Email search request:', JSON.stringify(options, null, 2));
+      
+      if (options.query) {
+        // Use Search API for keyword-based search
+        const searchRequest = {
+          requests: [
+            {
+              entityTypes: ['message'],
+              query: {
+                queryString: options.query,
+              },
+              from: 0,
+              size: options.limit || 25,
+            },
+          ],
+        };
+
+        console.log('📤 Using Search API for keyword search');
+        const response = await this.client.api('/search/query').post(searchRequest);
+        
+        if (!response.value || !response.value[0].hitsContainers) {
+          return { success: true, data: [] };
+        }
+
+        const hits = response.value[0].hitsContainers[0].hits || [];
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const messages: AzureMessage[] = hits.map((hit: any) => {
+          const msg = hit.resource;
+          return {
+            id: hit.hitId,
+            subject: msg.subject || '',
+            body: hit.summary || '', // Use search summary instead of full body
+            from: msg.from?.emailAddress?.address || '',
+            toRecipients:
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              msg.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+            receivedDateTime: msg.receivedDateTime || '',
+            importance: msg.importance || 'normal',
+            isRead: msg.isRead || false,
+          };
+        });
+
+        console.log(`✅ Found ${messages.length} emails via search`);
+        return { success: true, data: messages };
+        
+      } else {
+        // Use Messages API for newest emails by time
+        console.log('📤 Using Messages API for newest emails');
+        let query = this.client.api('/me/messages').orderby('receivedDateTime desc');
+        
+        if (options.limit) {
+          query = query.top(options.limit);
+        }
+
+        const response = await query.get();
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const messages: AzureMessage[] = response.value.map((msg: any) => ({
+          id: msg.id,
+          subject: msg.subject || '',
+          body: msg.bodyPreview || '', // Use preview instead of full body
+          from: msg.from?.emailAddress?.address || '',
+          toRecipients:
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            msg.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+          receivedDateTime: msg.receivedDateTime || '',
+          importance: msg.importance || 'normal',
+          isRead: msg.isRead || false,
+        }));
+
+        console.log(`✅ Found ${messages.length} newest emails`);
+        return { success: true, data: messages };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : 'Failed to search emails',
+      };
+    }
+  }
 }
