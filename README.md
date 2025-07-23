@@ -1,6 +1,6 @@
-# Slack Assistant
+# Work Chat
 
-An AI assistant that provides secure access to Slack workspaces, Azure, and Atlassian services.
+An AI assistant that helps you find information across Slack, Azure, and Atlassian services through chat.
 
 ## Features
 
@@ -32,8 +32,8 @@ mshell_login_and_set_env
 ## Quick Start
 
 ```bash
-git clone https://github.com/wuyq0808/slack-assistant.git
-cd slack-assistant
+git clone https://github.com/wuyq0808/work-chat.git
+cd work-chat
 npm install
 cp .env.example .env
 ```
