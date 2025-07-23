@@ -184,14 +184,8 @@ export class AzureOAuthService {
 
       res.setHeader('Set-Cookie', cookies);
 
-      // Redirect to home page without tokens in URL
+      // Redirect to home page
       const redirectUrl = new URL(`${process.env.HOME_PAGE_URL}/`);
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        throw new Error('API_KEY environment variable is required');
-      }
-
-      redirectUrl.searchParams.set('apikey', apiKey);
 
       res.writeHead(302, { Location: redirectUrl.toString() });
       res.end();
