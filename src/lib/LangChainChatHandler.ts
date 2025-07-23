@@ -70,7 +70,7 @@ export class LangChainChatHandler {
       .map(tool => `- ${tool.name}: ${tool.description}`)
       .join('\n');
 
-    return new SystemMessage(`You must automatically enhance vague requests and provide useful results without asking for clarification.
+    return new SystemMessage(`You must help the user find needed information through the work communication tools and automatically enhance vague requests to provide useful results without asking for clarification.
 
 Available tools:
 ${toolsList}
