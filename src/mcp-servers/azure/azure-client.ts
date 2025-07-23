@@ -186,10 +186,11 @@ export class AzureAPIClient {
   }): Promise<ApiResponse<AzureMessage>> {
     try {
       console.log('📧 Fetching email content for:', options.messageId);
-      
-      const fullMessage = await this.client.api(`/me/messages/${options.messageId}`).get();
-      
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+      const fullMessage = await this.client
+        .api(`/me/messages/${options.messageId}`)
+        .get();
+
       const message: AzureMessage = {
         id: fullMessage.id,
         subject: fullMessage.subject || '',
@@ -197,13 +198,12 @@ export class AzureAPIClient {
         from: fullMessage.from?.emailAddress?.address || '',
         toRecipients:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          fullMessage.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+          fullMessage.toRecipients?.map((r: any) => r.emailAddress?.address) ||
+          [],
         receivedDateTime: fullMessage.receivedDateTime || '',
         importance: fullMessage.importance || 'normal',
         isRead: fullMessage.isRead || false,
       };
-
-      console.log(`✅ Fetched email ${options.messageId}, body length: ${message.body.length}`);
 
       return {
         success: true,
@@ -225,8 +225,6 @@ export class AzureAPIClient {
     limit?: number;
   }): Promise<ApiResponse<AzureMessage[]>> {
     try {
-      console.log('🔍 Email search request:', JSON.stringify(options, null, 2));
-      
       if (options.query) {
         // Use Search API for keyword-based search
         const searchRequest = {
@@ -242,15 +240,16 @@ export class AzureAPIClient {
           ],
         };
 
-        console.log('📤 Using Search API for keyword search');
-        const response = await this.client.api('/search/query').post(searchRequest);
-        
+        const response = await this.client
+          .api('/search/query')
+          .post(searchRequest);
+
         if (!response.value || !response.value[0].hitsContainers) {
           return { success: true, data: [] };
         }
 
         const hits = response.value[0].hitsContainers[0].hits || [];
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const messages: AzureMessage[] = hits.map((hit: any) => {
           const msg = hit.resource;
@@ -268,20 +267,19 @@ export class AzureAPIClient {
           };
         });
 
-        console.log(`✅ Found ${messages.length} emails via search`);
         return { success: true, data: messages };
-        
       } else {
         // Use Messages API for newest emails by time
-        console.log('📤 Using Messages API for newest emails');
-        let query = this.client.api('/me/messages').orderby('receivedDateTime desc');
-        
+        let query = this.client
+          .api('/me/messages')
+          .orderby('receivedDateTime desc');
+
         if (options.limit) {
           query = query.top(options.limit);
         }
 
         const response = await query.get();
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const messages: AzureMessage[] = response.value.map((msg: any) => ({
           id: msg.id,
@@ -296,7 +294,6 @@ export class AzureAPIClient {
           isRead: msg.isRead || false,
         }));
 
-        console.log(`✅ Found ${messages.length} newest emails`);
         return { success: true, data: messages };
       }
     } catch (error) {

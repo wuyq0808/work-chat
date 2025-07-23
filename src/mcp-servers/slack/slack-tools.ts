@@ -187,11 +187,11 @@ export class SlackTools {
     });
 
     if (historyResult.success && historyResult.data) {
-      let content = 'userName,text,time\n';
+      let content = 'userName,text,time,isUnread\n';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       historyResult.data.forEach((msg: any) => {
         // Slack API message format is complex and dynamic
-        content += `${msg.userName},${msg.text.replace(/\n/g, ' ')},${msg.time}\n`;
+        content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${msg.isUnread}\n`;
       });
 
       return {
@@ -294,12 +294,12 @@ export class SlackTools {
     });
 
     if (searchResult.success && searchResult.data) {
-      let content = 'userName,text,time,channel\n';
+      let content = 'userName,text,time,channel,isUnread\n';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       searchResult.data.forEach((msg: any) => {
         // Slack search API returns dynamic message formats with channel name included
         const channelName = msg.channel?.name || msg.channel;
-        content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName}\n`;
+        content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName},${msg.isUnread}\n`;
       });
 
       return {

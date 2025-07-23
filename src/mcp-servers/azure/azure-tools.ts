@@ -2,6 +2,7 @@ import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AzureAPIClient } from './azure-client.js';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface GetMessagesArgs {
   limit?: number;
   filter?: string;
@@ -59,12 +60,15 @@ export class AzureTools {
           this.formatToolResponse(await this.handleSearchEmail(input)),
         {
           name: 'azure__search_email',
-          description: 'Search emails by keyword or get newest emails by time (returns summaries only)',
+          description:
+            'Search emails by keyword or get newest emails by time (returns summaries only)',
           schema: z.object({
             query: z
               .string()
               .optional()
-              .describe('Search keyword to find in email content. If not provided, returns newest emails by time'),
+              .describe(
+                'Search keyword to find in email content. If not provided, returns newest emails by time'
+              ),
             limit: z
               .number()
               .optional()
@@ -105,7 +109,9 @@ export class AzureTools {
           schema: z.object({
             messageId: z
               .string()
-              .describe('The message ID of the email to retrieve full content for'),
+              .describe(
+                'The message ID of the email to retrieve full content for'
+              ),
           }),
         }
       ),

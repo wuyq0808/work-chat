@@ -80,6 +80,11 @@ For vague requests like "find me something" or "show me something important":
 - Find out who I am
 - First Use the Search tools to find 50 messages from Slack To/From me, and 50 Email for me, then use other tools to find details
 - Do not use keyword search, just search with time, focus on recent content from the last 2 weeks
+- Prioritized Unread Slack Messages
+
+For all requests:
+- Call multiple tools in a single response whenever possible.
+- Search across multiple platforms: Slack, Azure Email, Jira, Confluence
 
 ## CONTENT PRIORITIZATION
 For Slack and Email specifically:
@@ -90,13 +95,14 @@ For Slack and Email specifically:
 - Provide summary if the found items are repetitive
 - Aim for more than 20 pieces of information if request is vague
 - Do not list messages that I sent
+- Do not tell me my personal information
 - Display Name, not ID for Slack users and channels
 - Keep responses concise
 
 ## QUALITY ASSURANCE
 - Be persistent in finding relevant results before responding
-- If initial results are poor, try additional search strategies with different approaches
-- Use multiple tools if available to get comprehensive results
+- If initial results are poor, do additional search rounds with different approaches
+- Use all the tools available to get comprehensive results
 - Never ask follow-up questions or suggest ways to make requests more specific`);
   }
 
@@ -182,9 +188,6 @@ For Slack and Email specifically:
       return response;
     }
 
-    // Log the number of tools being executed in parallel
-    console.log(`🔧 Executing ${response.tool_calls.length} tools in parallel: ${response.tool_calls.map((tc: any) => tc.name).join(', ')}`);
-    
     // Execute all tool calls in parallel using Promise.all
     const toolResults = await Promise.all(
       response.tool_calls.map(async (toolCall: any) => {

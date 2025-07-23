@@ -90,7 +90,7 @@ export class SlackAPIClient {
     oldest?: string;
     latest?: string;
     cursor?: string;
-  }): Promise<ApiResponse<MessageElement[]>> {
+  }): Promise<ApiResponse<Array<MessageElement & { isUnread: boolean }>>> {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
@@ -129,7 +129,13 @@ export class SlackAPIClient {
         };
       }
 
-      const messages: MessageElement[] = [];
+      // Get conversation info for last_read timestamp
+      const infoResult = await this.getConversationInfo(channelId);
+      const lastRead = infoResult.success
+        ? infoResult.data?.last_read
+        : undefined;
+
+      const messages: Array<MessageElement & { isUnread: boolean }> = [];
 
       for (const msg of result.messages) {
         const message = msg as MessageElement;
@@ -139,10 +145,11 @@ export class SlackAPIClient {
           continue;
         }
 
-        // Process the message text
-        const processedMessage: MessageElement = {
+        // Process the message text and add unread status
+        const processedMessage = {
           ...message,
           text: this.processText(message.text || ''),
+          isUnread: this.isMessageUnread(message.ts || '', lastRead),
         };
 
         messages.push(processedMessage);
@@ -250,7 +257,7 @@ export class SlackAPIClient {
     page?: number;
     sort?: 'score' | 'timestamp';
     sort_dir?: 'asc' | 'desc';
-  }): Promise<ApiResponse<Match[]>> {
+  }): Promise<ApiResponse<Array<Match & { isUnread: boolean }>>> {
     try {
       const result = await this.client.search.messages({
         query: params.query,
@@ -267,13 +274,36 @@ export class SlackAPIClient {
         };
       }
 
-      const matches: Match[] = [];
+      // Group messages by channel to minimize API calls
+      const channelIds = new Set<string>();
+      result.messages.matches.forEach(match => {
+        if (match.channel?.id) {
+          channelIds.add(match.channel.id);
+        }
+      });
+
+      // Get last_read timestamps for all channels
+      const channelLastRead = new Map<string, string>();
+      await Promise.all(
+        Array.from(channelIds).map(async channelId => {
+          const infoResult = await this.getConversationInfo(channelId);
+          if (infoResult.success && infoResult.data?.last_read) {
+            channelLastRead.set(channelId, infoResult.data.last_read);
+          }
+        })
+      );
+
+      const matches: Array<Match & { isUnread: boolean }> = [];
 
       for (const match of result.messages.matches) {
-        // Process the match text
-        const processedMatch: Match = {
+        // Process the match text and add unread status
+        const processedMatch = {
           ...match,
           text: this.processText(match.text || ''),
+          isUnread: this.isMessageUnread(
+            match.ts || '',
+            channelLastRead.get(match.channel?.id || '')
+          ),
         };
 
         matches.push(processedMatch);
@@ -308,12 +338,69 @@ export class SlackAPIClient {
       .replace(/&amp;/g, '&');
   }
 
+  // Helper function to determine if a message is unread
+  private isMessageUnread(messageTs: string, lastRead?: string): boolean {
+    if (!lastRead) {
+      // If no last_read timestamp, assume all messages are unread
+      return true;
+    }
+
+    const messageTime = parseFloat(messageTs);
+    const lastReadTime = parseFloat(lastRead);
+
+    // If either timestamp is invalid (NaN), assume unread for safety
+    if (isNaN(messageTime) || isNaN(lastReadTime)) {
+      return true;
+    }
+
+    // Compare timestamps - message is unread if ts > last_read
+    return messageTime > lastReadTime;
+  }
+
   getUserInfo(userId: string): Member | undefined {
     return this.usersCache.get(userId);
   }
 
   getChannelInfo(channelId: string): Channel | undefined {
     return this.channelsCache.get(channelId);
+  }
+
+  async getConversationInfo(channelId: string): Promise<
+    ApiResponse<{
+      last_read?: string;
+      unread_count?: number;
+      unread_count_display?: number;
+    }>
+  > {
+    try {
+      const result = await this.client.conversations.info({
+        channel: channelId,
+      });
+
+      if (!result.ok || !result.channel) {
+        return {
+          success: false,
+          error: 'Failed to fetch conversation info',
+        };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const channel = result.channel as any;
+
+      return {
+        success: true,
+        data: {
+          last_read: channel.last_read,
+          unread_count: channel.unread_count,
+          unread_count_display: channel.unread_count_display,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   async getAuthTest(): Promise<
