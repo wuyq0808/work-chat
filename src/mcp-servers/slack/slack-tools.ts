@@ -1,6 +1,7 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { SlackAPIClient } from './slack-client.js';
+import { subDays, format } from 'date-fns';
 
 interface ConversationsHistoryArgs {
   channel_id: string;
@@ -18,6 +19,10 @@ interface SearchMessagesArgs {
   count?: number;
   sort?: 'score' | 'timestamp';
   sort_dir?: 'asc' | 'desc';
+}
+
+interface GetUserRecentMessagesArgs {
+  days?: number;
 }
 
 export interface ToolResponse {
@@ -87,7 +92,11 @@ export class SlackTools {
           name: 'slack__search_messages',
           description: 'Search for messages across Slack workspace',
           schema: z.object({
-            query: z.string().describe('Search query text with operators: from:@username or from:<@UserID> (messages from user), to:@username or to:<@UserID> (messages to user), with:@username or with:<@UserID> (conversations involving user), in:channel_name (specific channel), has:file/link/image, before:YYYY-MM-DD, after:YYYY-MM-DD. Examples: "from:@john project" or "from:<@U1234567> meeting"'),
+            query: z
+              .string()
+              .describe(
+                'Search query text with operators: from:@username or from:<@UserID> (messages from user), to:@username or to:<@UserID> (messages to user), with:@username or with:<@UserID> (conversations involving user), in:channel_name (specific channel), has:file/link/image, before:YYYY-MM-DD, after:YYYY-MM-DD. Examples: "from:@john project" or "from:<@U1234567> meeting"'
+              ),
             count: z
               .number()
               .optional()
@@ -100,6 +109,24 @@ export class SlackTools {
               .enum(['asc', 'desc'])
               .optional()
               .describe('Sort direction'),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(
+            await this.handleGetUserRecentMessages(input)
+          ),
+        {
+          name: 'slack__get_user_recent_messages',
+          description:
+            'Get recent messages involving the current user (messages with/to/from the user) in the last N days',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe('Number of days to look back (default: 14)'),
           }),
         }
       ),
@@ -137,8 +164,6 @@ export class SlackTools {
         isError: true,
       };
     }
-
-    await this.slackClient.getChannels();
 
     const historyResult = await this.slackClient.getConversationHistory({
       channel: channel_id,
@@ -202,8 +227,6 @@ export class SlackTools {
         isError: true,
       };
     }
-
-    await this.slackClient.getChannels();
 
     const repliesResult = await this.slackClient.getConversationReplies({
       channel: channel_id,
@@ -275,6 +298,85 @@ export class SlackTools {
           {
             type: 'text',
             text: `Error searching messages: ${searchResult.error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetUserRecentMessages(
+    args: GetUserRecentMessagesArgs
+  ): Promise<ToolResponse> {
+    const { days = 14 } = args;
+
+    try {
+      // Get current user ID
+      const authResult = await this.slackClient.getAuthTest();
+      if (!authResult.success || !authResult.data?.user_id) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: Failed to get current user ID',
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const userId = authResult.data.user_id;
+
+      // Calculate start date (N days ago)
+      const startDate = subDays(new Date(), days);
+
+      // Format date for Slack search (YYYY-MM-DD)
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+      // Search for messages with the user after the start date
+      const query = `with:${userId} after:${startDateStr}`;
+
+      const result = await this.slackClient.searchMessages({
+        query,
+        count: 100,
+        sort: 'timestamp',
+        sort_dir: 'desc',
+      });
+
+      if (result.success && result.data) {
+        let content = 'userName,text,time,channel,isUnread\n';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        result.data.forEach((msg: any) => {
+          // Slack search API returns dynamic message formats with channel name included
+          const channelName = msg.channel?.name || msg.channel;
+          content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName},${msg.isUnread}\n`;
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: content,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error searching user messages: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting user recent messages: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,

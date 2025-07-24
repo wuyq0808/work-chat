@@ -34,56 +34,6 @@ export class SlackAPIClient {
     this.client = new WebClient(token);
   }
 
-  async listChannels(
-    cursor?: string,
-    limit?: number
-  ): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
-    try {
-      const types = ['public_channel', 'private_channel', 'mpim', 'im'];
-
-      const result = await this.client.conversations.list({
-        types: types.join(','),
-        limit: Math.min(limit || 10, 100),
-        cursor: cursor,
-      });
-
-      if (!result.ok || !result.channels) {
-        return {
-          success: false,
-          error: 'Failed to fetch channels from Slack API',
-        };
-      }
-
-      const allChannels: Channel[] = [];
-      for (const channel of result.channels) {
-        if (channel.id && channel.name) {
-          this.channelsCache.set(channel.id, channel);
-          allChannels.push(channel);
-        }
-      }
-
-      return {
-        success: true,
-        data: allChannels,
-        ...(result.response_metadata?.next_cursor && {
-          nextCursor: result.response_metadata.next_cursor,
-        }),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  async getChannels(
-    cursor?: string,
-    limit?: number
-  ): Promise<ApiResponse<Channel[]> & { nextCursor?: string }> {
-    return await this.listChannels(cursor, limit);
-  }
-
   async getConversationHistory(params: {
     channel: string;
     limit?: number;
@@ -357,14 +307,6 @@ export class SlackAPIClient {
     return messageTime > lastReadTime;
   }
 
-  getUserInfo(userId: string): Member | undefined {
-    return this.usersCache.get(userId);
-  }
-
-  getChannelInfo(channelId: string): Channel | undefined {
-    return this.channelsCache.get(channelId);
-  }
-
   async getConversationInfo(channelId: string): Promise<
     ApiResponse<{
       last_read?: string;
@@ -403,37 +345,22 @@ export class SlackAPIClient {
     }
   }
 
-  async getAuthTest(): Promise<
-    ApiResponse<{
-      ok: boolean;
-      url: string;
-      team: string;
-      user: string;
-      team_id: string;
-      user_id: string;
-      bot_id?: string;
-    }>
-  > {
+  async getAuthTest(): Promise<ApiResponse<{ user_id: string; user: string }>> {
     try {
       const result = await this.client.auth.test();
 
-      if (!result.ok) {
+      if (!result.ok || !result.user_id || !result.user) {
         return {
           success: false,
-          error: 'Failed to authenticate with Slack API',
+          error: 'Failed to get auth test info',
         };
       }
 
       return {
         success: true,
         data: {
-          ok: result.ok,
-          url: result.url || '',
-          team: result.team || '',
-          user: result.user || '',
-          team_id: result.team_id || '',
-          user_id: result.user_id || '',
-          bot_id: result.bot_id,
+          user_id: result.user_id,
+          user: result.user,
         },
       };
     } catch (error) {

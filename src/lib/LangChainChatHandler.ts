@@ -85,8 +85,8 @@ export class LangChainChatHandler {
         userContextInfo += `- Slack User ID: ${slackUserId}\n`;
       }
     }
-    
-    return new SystemMessage(`You must help the user find needed information through the work communication tools and automatically enhance vague requests to provide useful results without asking for clarification.
+
+    return new SystemMessage(`You must help the user find needed information through the collaboration platforms and automatically enhance vague requests to provide useful results without asking for clarification.
 
 Current Date/Time: ${new Date().toISOString()}
 ${userContextInfo}
@@ -95,8 +95,7 @@ ${toolsList}
 
 ## SEARCH STRATEGY
 For vague requests like "find me something" or "show me something important":
-- Search with:<@MyUserID> 50 Slack messages, find out the channels of these messages, and the history of the channels to get to know my interest
-- NO KEYWORD SEARCH, just find latest
+- Use the slack recent message tool
 - Prioritized Unread Slack Messages
 - Get 50 Emails, our tools only return short titles so please get many
 - Get 50 calendar events, our tools only return short titles so please get many
@@ -315,7 +314,11 @@ For vague requests like "find me something" or "show me something important":
     if (history.length === 0) {
       this.addToConversationHistory(
         conversationId,
-        this.createPromptEnhancementMessage(allTools, request.azureName, request.slackUserId)
+        this.createPromptEnhancementMessage(
+          allTools,
+          request.azureName,
+          request.slackUserId
+        )
       );
     }
 
