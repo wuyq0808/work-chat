@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AzureAPIClient } from './azure-client.js';
 import { subDays, addDays, parseISO } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { stringify } from 'csv-stringify/sync';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface GetMessagesArgs {
@@ -77,7 +78,8 @@ export class AzureTools {
           this.formatToolResponse(await this.handleGetUpcomingCalendar(input)),
         {
           name: 'azure__get_upcoming_calendar',
-          description: 'Get upcoming calendar events for the next N days',
+          description:
+            'Get upcoming calendar events for the next N days (includes detailed content)',
           schema: z.object({
             days: z
               .number()
@@ -217,10 +219,31 @@ export class AzureTools {
     });
 
     if (eventsResult.success && eventsResult.data) {
-      let content =
-        'id,subject,start,end,location,attendees,organizer,importance,body\n';
-      eventsResult.data.forEach(event => {
-        content += `${event.id},"${event.subject.replace(/"/g, '""')}",${this.formatDateTime(event.start, event.startTimeZone)},${this.formatDateTime(event.end, event.endTimeZone)},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance},"${event.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+      const records = eventsResult.data.map(event => [
+        event.id,
+        event.subject,
+        this.formatDateTime(event.start, event.startTimeZone),
+        this.formatDateTime(event.end, event.endTimeZone),
+        event.location,
+        event.attendees.join(';'),
+        event.organizer,
+        event.importance,
+        event.body,
+      ]);
+
+      const content = stringify(records, {
+        header: true,
+        columns: [
+          'id',
+          'subject',
+          'start',
+          'end',
+          'location',
+          'attendees',
+          'organizer',
+          'importance',
+          'body',
+        ],
       });
 
       return {
@@ -300,10 +323,27 @@ export class AzureTools {
       });
 
       if (emailsResult.success && emailsResult.data) {
-        let content =
-          'id,subject,from,toRecipients,receivedDateTime,importance,isRead\n';
-        emailsResult.data.forEach(msg => {
-          content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead}\n`;
+        const records = emailsResult.data.map(msg => [
+          msg.id,
+          msg.subject,
+          msg.from,
+          msg.toRecipients.join(';'),
+          msg.receivedDateTime,
+          msg.importance,
+          msg.isRead,
+        ]);
+
+        const content = stringify(records, {
+          header: true,
+          columns: [
+            'id',
+            'subject',
+            'from',
+            'toRecipients',
+            'receivedDateTime',
+            'importance',
+            'isRead',
+          ],
         });
 
         return {
@@ -358,10 +398,31 @@ export class AzureTools {
       });
 
       if (eventsResult.success && eventsResult.data) {
-        let content =
-          'id,subject,start,end,location,attendees,organizer,importance\n';
-        eventsResult.data.forEach(event => {
-          content += `${event.id},"${event.subject.replace(/"/g, '""')}",${this.formatDateTime(event.start, event.startTimeZone)},${this.formatDateTime(event.end, event.endTimeZone)},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance}\n`;
+        const records = eventsResult.data.map(event => [
+          event.id,
+          event.subject,
+          this.formatDateTime(event.start, event.startTimeZone),
+          this.formatDateTime(event.end, event.endTimeZone),
+          event.location,
+          event.attendees.join(';'),
+          event.organizer,
+          event.importance,
+          event.body,
+        ]);
+
+        const content = stringify(records, {
+          header: true,
+          columns: [
+            'id',
+            'subject',
+            'start',
+            'end',
+            'location',
+            'attendees',
+            'organizer',
+            'importance',
+            'body',
+          ],
         });
 
         return {
@@ -394,11 +455,6 @@ export class AzureTools {
         isError: true,
       };
     }
-  }
-
-  // Helper method to format CSV content (used by both profile and message handlers)
-  private formatCSVField(value: string): string {
-    return `"${value.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
   }
 
   // Helper method to format datetime with timezone support
