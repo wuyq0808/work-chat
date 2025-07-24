@@ -21,7 +21,7 @@ interface SearchMessagesArgs {
   sort_dir?: 'asc' | 'desc';
 }
 
-interface GetUserRecentMessagesArgs {
+interface GetUserLatestMessagesArgs {
   days?: number;
 }
 
@@ -116,12 +116,12 @@ export class SlackTools {
       tool(
         async input =>
           this.formatToolResponse(
-            await this.handleGetUserRecentMessages(input)
+            await this.handleGetUserLatestMessages(input)
           ),
         {
-          name: 'slack__get_user_recent_messages',
+          name: 'slack__get_user_latest_messages',
           description:
-            'Get recent messages involving the current user (messages with/to/from the user) in the last N days',
+            'Get latest messages involving the current user (messages with/to/from the user) in the last N days',
           schema: z.object({
             days: z
               .number()
@@ -266,7 +266,7 @@ export class SlackTools {
   private async handleSearchMessages(
     args: SearchMessagesArgs
   ): Promise<ToolResponse> {
-    const { query, count = 20, sort = 'timestamp', sort_dir = 'desc' } = args;
+    const { query, count = 100, sort = 'timestamp', sort_dir = 'desc' } = args;
 
     const searchResult = await this.slackClient.searchMessages({
       query,
@@ -305,8 +305,8 @@ export class SlackTools {
     }
   }
 
-  private async handleGetUserRecentMessages(
-    args: GetUserRecentMessagesArgs
+  private async handleGetUserLatestMessages(
+    args: GetUserLatestMessagesArgs
   ): Promise<ToolResponse> {
     const { days = 14 } = args;
 
@@ -336,17 +336,69 @@ export class SlackTools {
       // Search for messages with the user after the start date
       const query = `with:${userId} after:${startDateStr}`;
 
-      const result = await this.slackClient.searchMessages({
-        query,
-        count: 100,
-        sort: 'timestamp',
-        sort_dir: 'desc',
-      });
+      // Fetch multiple pages in parallel batches to get more messages faster
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allMessages: any[] = [];
+      const maxPages = 10; // Fetch up to 10 pages (1000 messages max)
+      const batchSize = 5; // Process 5 pages in parallel per batch
 
-      if (result.success && result.data) {
+      for (
+        let batchStart = 1;
+        batchStart <= maxPages;
+        batchStart += batchSize
+      ) {
+        const batchEnd = Math.min(batchStart + batchSize - 1, maxPages);
+        const batchPromises = [];
+
+        // Create parallel requests for this batch
+        for (let page = batchStart; page <= batchEnd; page++) {
+          const promise = this.slackClient.searchMessages({
+            query,
+            count: 100,
+            page,
+            sort: 'timestamp',
+            sort_dir: 'desc',
+          });
+          batchPromises.push(promise);
+        }
+
+        // Wait for all requests in this batch to complete
+        const batchResults = await Promise.all(batchPromises);
+
+        // Process results and check for end conditions
+        let shouldStop = false;
+        for (const result of batchResults) {
+          if (!result.success || !result.data || result.data.length === 0) {
+            shouldStop = true;
+            break;
+          }
+
+          allMessages.push(...result.data);
+
+          // If we got less than 100 messages, we've reached the end
+          if (result.data.length < 100) {
+            shouldStop = true;
+          }
+        }
+
+        if (shouldStop) {
+          break;
+        }
+      }
+
+      if (allMessages.length > 0) {
+        // Sort messages by timestamp in descending order (newest first)
+        // Slack timestamps are Unix timestamps as strings (e.g., "1234567890.123456")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        allMessages.sort((a: any, b: any) => {
+          const timeA = a.time ? parseFloat(a.time) : 0;
+          const timeB = b.time ? parseFloat(b.time) : 0;
+          return timeB - timeA; // Descending order (newest first)
+        });
+
         let content = 'userName,text,time,channel,isUnread\n';
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        result.data.forEach((msg: any) => {
+        allMessages.forEach((msg: any) => {
           // Slack search API returns dynamic message formats with channel name included
           const channelName = msg.channel?.name || msg.channel;
           content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName},${msg.isUnread}\n`;
@@ -365,10 +417,9 @@ export class SlackTools {
           content: [
             {
               type: 'text',
-              text: `Error searching user messages: ${result.error}`,
+              text: 'No messages found for the specified time period',
             },
           ],
-          isError: true,
         };
       }
     } catch (error) {
@@ -376,7 +427,7 @@ export class SlackTools {
         content: [
           {
             type: 'text',
-            text: `Error getting user recent messages: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            text: `Error getting user latest messages: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,

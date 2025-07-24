@@ -23,7 +23,7 @@ export interface AzureUser {
 export interface AzureMessage {
   id: string;
   subject: string;
-  body: string;
+  body?: string;
   from: string;
   toRecipients: string[];
   receivedDateTime: string;
@@ -37,6 +37,8 @@ export interface AzureCalendarEvent {
   body: string;
   start: string;
   end: string;
+  startTimeZone: string;
+  endTimeZone: string;
   location: string;
   attendees: string[];
   organizer: string;
@@ -80,13 +82,18 @@ export class AzureAPIClient {
     }
   }
 
-  async getMessages(options: {
+  async getMessageTitles(options: {
     limit?: number;
     filter?: string;
     search?: string;
   }): Promise<ApiResponse<AzureMessage[]>> {
     try {
-      let query = this.client.api('/me/messages');
+      let query = this.client
+        .api('/me/messages')
+        // Exclude body content from bulk queries for efficiency
+        .select(
+          'id,subject,from,toRecipients,receivedDateTime,importance,isRead'
+        );
 
       if (options.limit) {
         query = query.top(options.limit);
@@ -107,7 +114,6 @@ export class AzureAPIClient {
         // Microsoft Graph API response format is complex
         id: msg.id,
         subject: msg.subject,
-        body: msg.body?.content || '',
         from: msg.from?.emailAddress?.address || '',
         toRecipients:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,6 +132,46 @@ export class AzureAPIClient {
         success: false,
         error:
           error instanceof Error ? error.message : 'Failed to fetch messages',
+      };
+    }
+  }
+
+  async getMessageContent(
+    messageId: string
+  ): Promise<ApiResponse<AzureMessage>> {
+    try {
+      const response = await this.client
+        .api(`/me/messages/${messageId}`)
+        // Include body content for individual message requests
+        .select(
+          'id,subject,body,from,toRecipients,receivedDateTime,importance,isRead'
+        )
+        .get();
+
+      const message: AzureMessage = {
+        id: response.id,
+        subject: response.subject,
+        body: response.body?.content || '',
+        from: response.from?.emailAddress?.address || '',
+        toRecipients:
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          response.toRecipients?.map((r: any) => r.emailAddress?.address) || [],
+        receivedDateTime: response.receivedDateTime,
+        importance: response.importance,
+        isRead: response.isRead,
+      };
+
+      return {
+        success: true,
+        data: message,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to fetch message content',
       };
     }
   }
@@ -158,6 +204,8 @@ export class AzureAPIClient {
         body: event.body?.content || '',
         start: event.start?.dateTime,
         end: event.end?.dateTime,
+        startTimeZone: event.start?.timeZone || 'UTC',
+        endTimeZone: event.end?.timeZone || 'UTC',
         location: event.location?.displayName || '',
         attendees:
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,7 +304,6 @@ export class AzureAPIClient {
           return {
             id: hit.hitId,
             subject: msg.subject || '',
-            body: hit.summary || '', // Use search summary instead of full body
             from: msg.from?.emailAddress?.address || '',
             toRecipients:
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -272,6 +319,9 @@ export class AzureAPIClient {
         // Use Messages API for newest emails by time
         let query = this.client
           .api('/me/messages')
+          .select(
+            'id,subject,from,toRecipients,receivedDateTime,importance,isRead'
+          )
           .orderby('receivedDateTime desc');
 
         if (options.limit) {
@@ -284,7 +334,7 @@ export class AzureAPIClient {
         const messages: AzureMessage[] = response.value.map((msg: any) => ({
           id: msg.id,
           subject: msg.subject || '',
-          body: msg.bodyPreview || '', // Use preview instead of full body
+          body: '', // No body content in search results
           from: msg.from?.emailAddress?.address || '',
           toRecipients:
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

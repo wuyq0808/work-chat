@@ -211,7 +211,7 @@ export class SlackAPIClient {
     try {
       const result = await this.client.search.messages({
         query: params.query,
-        count: params.count || 20,
+        count: params.count || 100,
         page: params.page || 1,
         sort: params.sort || 'timestamp',
         sort_dir: params.sort_dir || 'desc',

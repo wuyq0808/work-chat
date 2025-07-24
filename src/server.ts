@@ -72,7 +72,7 @@ app.get(
 app.post(
   '/api/ai/stream',
   asyncHandler(async (req, res) => {
-    const { input, provider, conversationId } = req.body;
+    const { input, provider, conversationId, timezone } = req.body;
 
     if (!input) {
       return res.status(400).json({
@@ -117,6 +117,7 @@ app.post(
       slackUserId,
       provider: provider as AIProvider,
       conversationId,
+      timezone,
       onProgress,
     });
 

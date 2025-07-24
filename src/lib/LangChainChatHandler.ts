@@ -29,6 +29,7 @@ export interface ChatRequest {
   conversationId: string;
   azureName?: string;
   slackUserId?: string;
+  timezone?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
   onProgress?: (event: { type: string; data: any }) => void;
 }
@@ -68,7 +69,8 @@ export class LangChainChatHandler {
   private createPromptEnhancementMessage(
     availableTools: StructuredTool[],
     azureName?: string,
-    slackUserId?: string
+    slackUserId?: string,
+    timezone?: string
   ): SystemMessage {
     const toolsList = availableTools
       .map(tool => `- ${tool.name}: ${tool.description}`)
@@ -76,13 +78,16 @@ export class LangChainChatHandler {
 
     // Build user context information
     let userContextInfo = '';
-    if (azureName || slackUserId) {
+    if (azureName || slackUserId || timezone) {
       userContextInfo = '\n## USER CONTEXT\n';
       if (azureName) {
         userContextInfo += `- Azure Name: ${azureName}\n`;
       }
       if (slackUserId) {
         userContextInfo += `- Slack User ID: ${slackUserId}\n`;
+      }
+      if (timezone) {
+        userContextInfo += `- User Timezone: ${timezone}\n`;
       }
     }
 
@@ -95,18 +100,10 @@ ${toolsList}
 
 ## SEARCH STRATEGY
 For vague requests like "find me something" or "show me something important":
-- Use the slack recent message tool
-- Prioritized Unread Slack Messages
-- Get 50 Emails, our tools only return short titles so please get many
-- Get 50 calendar events, our tools only return short titles so please get many
-
-
-
-## RESPONSE GUIDE
-- Provide summary if the found items are repetitive
+- Prioritize tools slack__get_user_recent_messages azure__get_recent_emails azure__get_upcoming_calendar
+- Prioritize unread messages 
+- Prioritize Slack, Emails
 - Aim for more than 20 pieces of information if request is vague
-- Do not list messages that I sent
-- Do not tell me my personal information
 - Display Name, not ID for Slack users and channels
 - Keep responses concise
 - Do not translate messages, response in their original language
@@ -162,7 +159,7 @@ For vague requests like "find me something" or "show me something important":
       const azureClient = new AzureAPIClient({
         accessToken: request.azureToken,
       });
-      const azureTools = new AzureTools(azureClient);
+      const azureTools = new AzureTools(azureClient, request.timezone);
       allTools.push(...azureTools.getTools());
     }
 
@@ -317,7 +314,8 @@ For vague requests like "find me something" or "show me something important":
         this.createPromptEnhancementMessage(
           allTools,
           request.azureName,
-          request.slackUserId
+          request.slackUserId,
+          request.timezone
         )
       );
     }

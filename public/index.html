@@ -229,6 +229,10 @@
             
             
             try {
+                // Get user's timezone
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                console.log(`🌍 Frontend detected timezone: ${timezone}`);
+                
                 // Send request with streaming response
                 const response = await fetch('/api/ai/stream', {
                     method: 'POST',
@@ -238,7 +242,8 @@
                     body: JSON.stringify({
                         input: message,
                         provider: provider,
-                        conversationId: currentConversationId
+                        conversationId: currentConversationId,
+                        timezone: timezone
                     })
                 });
 

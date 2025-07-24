@@ -13,6 +13,7 @@ export interface AIRequest {
   slackUserId?: string;
   provider?: AIProvider;
   conversationId?: string;
+  timezone?: string;
 }
 
 export interface StreamingAIRequest extends AIRequest {
@@ -49,6 +50,7 @@ export async function callAIWithStream(
         azureName: request.azureName,
         slackUserId: request.slackUserId,
         conversationId: request.conversationId,
+        timezone: request.timezone,
         onProgress: request.onProgress,
       });
     }
@@ -67,6 +69,7 @@ export async function callAIWithStream(
         azureName: request.azureName,
         slackUserId: request.slackUserId,
         conversationId: request.conversationId,
+        timezone: request.timezone,
         onProgress: request.onProgress,
       });
     }

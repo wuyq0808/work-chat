@@ -1,6 +1,8 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { AzureAPIClient } from './azure-client.js';
+import { subDays, addDays, parseISO } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface GetMessagesArgs {
@@ -24,6 +26,14 @@ interface SearchEmailArgs {
   limit?: number;
 }
 
+interface GetLatestEmailsArgs {
+  days?: number;
+}
+
+interface GetUpcomingCalendarArgs {
+  days?: number;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -36,15 +46,46 @@ export interface ToolResponse {
 export class AzureTools {
   private azureClient: AzureAPIClient;
   private tools: StructuredTool[];
+  private timezone?: string;
 
-  constructor(azureClient: AzureAPIClient) {
+  constructor(azureClient: AzureAPIClient, timezone?: string) {
     this.azureClient = azureClient;
+    this.timezone = timezone;
     this.tools = this.createTools();
   }
 
   // Create DynamicStructuredTool instances
   private createTools(): StructuredTool[] {
     return [
+      tool(
+        async input =>
+          this.formatToolResponse(await this.handleGetLatestEmails(input)),
+        {
+          name: 'azure__get_latest_emails',
+          description: 'Get latest emails from the last N days',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe('Number of days to look back (default: 14)'),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(await this.handleGetUpcomingCalendar(input)),
+        {
+          name: 'azure__get_upcoming_calendar',
+          description: 'Get upcoming calendar events for the next N days',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe('Number of days to look ahead (default: 7)'),
+          }),
+        }
+      ),
       tool(
         async input =>
           this.formatToolResponse(await this.handleSearchEmail(input)),
@@ -129,7 +170,7 @@ export class AzureTools {
   private async handleSearchEmail(
     args: SearchEmailArgs
   ): Promise<ToolResponse> {
-    const { query, limit = 25 } = args;
+    const { query, limit = 1000 } = args;
 
     const searchResult = await this.azureClient.searchEmails({
       query,
@@ -140,7 +181,7 @@ export class AzureTools {
       let content =
         'id,subject,from,toRecipients,receivedDateTime,importance,isRead,summary\n';
       searchResult.data.forEach(msg => {
-        content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${msg.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+        content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${(msg.body || '').replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
       });
 
       return {
@@ -167,7 +208,7 @@ export class AzureTools {
   private async handleGetCalendarEvents(
     args: GetCalendarEventsArgs
   ): Promise<ToolResponse> {
-    const { limit = 10, start_time, end_time } = args;
+    const { limit = 1000, start_time, end_time } = args;
 
     const eventsResult = await this.azureClient.getCalendarEvents({
       limit,
@@ -179,7 +220,7 @@ export class AzureTools {
       let content =
         'id,subject,start,end,location,attendees,organizer,importance,body\n';
       eventsResult.data.forEach(event => {
-        content += `${event.id},"${event.subject.replace(/"/g, '""')}",${event.start},${event.end},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance},"${event.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+        content += `${event.id},"${event.subject.replace(/"/g, '""')}",${this.formatDateTime(event.start, event.startTimeZone)},${this.formatDateTime(event.end, event.endTimeZone)},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance},"${event.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
       });
 
       return {
@@ -216,7 +257,7 @@ export class AzureTools {
       const msg = emailResult.data;
       let content =
         'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
-      content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${msg.body.replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+      content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${(msg.body || '').replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
 
       return {
         content: [
@@ -239,8 +280,150 @@ export class AzureTools {
     }
   }
 
+  private async handleGetLatestEmails(
+    args: GetLatestEmailsArgs
+  ): Promise<ToolResponse> {
+    const { days = 14 } = args;
+
+    try {
+      // Calculate date range (last N days)
+      const startDate = subDays(new Date(), days);
+
+      // Format date for Microsoft Graph API filter (ISO 8601 format with Z)
+      const startDateStr = startDate.toISOString();
+
+      // Create filter for emails received after the start date
+      const filter = `receivedDateTime ge ${startDateStr}`;
+
+      const emailsResult = await this.azureClient.getMessageTitles({
+        filter,
+      });
+
+      if (emailsResult.success && emailsResult.data) {
+        let content =
+          'id,subject,from,toRecipients,receivedDateTime,importance,isRead\n';
+        emailsResult.data.forEach(msg => {
+          content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead}\n`;
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: content,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting latest emails: ${emailsResult.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting latest emails: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetUpcomingCalendar(
+    args: GetUpcomingCalendarArgs
+  ): Promise<ToolResponse> {
+    const { days = 7 } = args;
+
+    try {
+      // Calculate date range (next N days)
+      const startDate = new Date();
+      const endDate = addDays(new Date(), days);
+
+      // Format dates for Microsoft Graph API filter (ISO 8601 format with Z)
+      const startDateStr = startDate.toISOString();
+      const endDateStr = endDate.toISOString();
+
+      const eventsResult = await this.azureClient.getCalendarEvents({
+        startTime: startDateStr,
+        endTime: endDateStr,
+      });
+
+      if (eventsResult.success && eventsResult.data) {
+        let content =
+          'id,subject,start,end,location,attendees,organizer,importance\n';
+        eventsResult.data.forEach(event => {
+          content += `${event.id},"${event.subject.replace(/"/g, '""')}",${this.formatDateTime(event.start, event.startTimeZone)},${this.formatDateTime(event.end, event.endTimeZone)},"${event.location.replace(/"/g, '""')}","${event.attendees.join(';')}",${event.organizer},${event.importance}\n`;
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: content,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting upcoming events: ${eventsResult.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting upcoming events: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   // Helper method to format CSV content (used by both profile and message handlers)
   private formatCSVField(value: string): string {
     return `"${value.replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+  }
+
+  // Helper method to format datetime with timezone support
+  private formatDateTime(
+    dateString: string,
+    sourceTimeZone: string = 'UTC'
+  ): string {
+    if (!dateString) return '';
+
+    try {
+      // Microsoft Graph returns UTC times but without 'Z' suffix
+      // We need to append 'Z' to ensure parseISO treats it as UTC
+      let dateToParseISO = dateString;
+      if (sourceTimeZone === 'UTC' && !dateString.endsWith('Z')) {
+        dateToParseISO = dateString.replace(/\.?\d*$/, 'Z');
+      }
+
+      const date = parseISO(dateToParseISO);
+
+      if (this.timezone) {
+        return formatInTimeZone(date, this.timezone, 'yyyy-MM-dd HH:mm:ss zzz');
+      }
+      return date.toISOString();
+    } catch {
+      return dateString; // Return original if parsing fails
+    }
   }
 }
