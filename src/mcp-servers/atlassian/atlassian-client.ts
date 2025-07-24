@@ -13,6 +13,7 @@ export interface JiraIssue {
   key: string;
   fields: {
     summary: string;
+    description?: string;
     status: {
       name: string;
     };
@@ -27,6 +28,12 @@ export interface JiraIssue {
     };
     created: string;
     updated: string;
+    parent?: {
+      key: string;
+      fields: {
+        summary: string;
+      };
+    };
   };
 }
 
@@ -173,12 +180,14 @@ export class AtlassianAPIClient {
             maxResults,
             fields: [
               'summary',
+              'description',
               'status',
               'assignee',
               'reporter',
               'priority',
               'created',
               'updated',
+              'parent',
             ],
           }),
         }

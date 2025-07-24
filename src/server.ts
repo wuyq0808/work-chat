@@ -32,6 +32,34 @@ const slackOAuthService = new SlackOAuthService();
 const azureOAuthService = new AzureOAuthService();
 const atlassianOAuthService = new AtlassianOAuthService();
 
+// Helper function to handle Atlassian token refresh
+async function handleAtlassianTokenRefresh(
+  req: express.Request,
+  res: express.Response
+): Promise<void> {
+  const accessToken = req.cookies.atlassian_token;
+  const refreshToken = req.cookies.atlassian_refresh_token;
+
+  // If we have a refresh token but no access token (expired), try to refresh
+  if (refreshToken && !accessToken) {
+    try {
+      const tokenResponse =
+        await atlassianOAuthService.refreshToken(refreshToken);
+
+      // Set new cookies using utility function
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cookies = setAtlassianCookies(tokenResponse, isProduction);
+
+      res.setHeader('Set-Cookie', cookies);
+    } catch {
+      // Clear invalid refresh token cookie
+      res.clearCookie('atlassian_refresh_token');
+      res.clearCookie('atlassian_token');
+      res.clearCookie('atlassian_connected');
+    }
+  }
+}
+
 // Slack OAuth routes
 app.get('/slack/install', slackOAuthService.handleInstall);
 app.get('/slack/oauth_redirect', slackOAuthService.handleCallback);
@@ -49,20 +77,7 @@ app.get(
   '/',
   asyncHandler(async (req, res) => {
     // Check and refresh Atlassian token if needed
-    const accessToken = req.cookies.atlassian_token;
-    const refreshToken = req.cookies.atlassian_refresh_token;
-
-    // If we have a refresh token but no access token (expired), try to refresh
-    if (refreshToken && !accessToken) {
-      const tokenResponse =
-        await atlassianOAuthService.refreshToken(refreshToken);
-
-      // Set new cookies using utility function
-      const isProduction = process.env.NODE_ENV === 'production';
-      const cookies = setAtlassianCookies(tokenResponse, isProduction);
-
-      res.setHeader('Set-Cookie', cookies);
-    }
+    await handleAtlassianTokenRefresh(req, res);
 
     res.sendFile(path.join(__dirname, '../public/index.html'));
   })
