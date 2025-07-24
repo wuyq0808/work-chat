@@ -14,9 +14,7 @@ async function main() {
 
   try {
     // Create Slack MCP server
-    const mcpServer = new SlackMCPStdioServer({
-      userToken,
-    });
+    const mcpServer = new SlackMCPStdioServer(userToken);
 
     // Start server with stdio transport
     const transport = new StdioServerTransport();

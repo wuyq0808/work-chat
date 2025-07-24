@@ -1,7 +1,8 @@
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { SlackAPIClient } from './slack-client.js';
+import { SlackAPIClient, type SlackMessage } from './slack-client.js';
 import { subDays, format } from 'date-fns';
+import { stringify } from 'csv-stringify/sync';
 
 interface ConversationsHistoryArgs {
   channel_id: string;
@@ -148,6 +149,58 @@ export class SlackTools {
     return this.tools;
   }
 
+  // Private method to group messages by channel and format with headers
+  private formatMessagesGroupedByChannel(messages: SlackMessage[]): string {
+    // Group messages by channel
+    const channelGroups = new Map<string, any[]>();
+
+    messages.forEach((msg: any) => {
+      const channelId = msg.channel?.id || 'unknown';
+      if (!channelGroups.has(channelId)) {
+        channelGroups.set(channelId, []);
+      }
+      channelGroups.get(channelId)!.push(msg);
+    });
+
+    // Sort each channel group by time (descending)
+    channelGroups.forEach(channelMessages => {
+      channelMessages.sort((a: any, b: any) => {
+        const timeA = a.ts ? parseFloat(a.ts) : 0;
+        const timeB = b.ts ? parseFloat(b.ts) : 0;
+        return timeB - timeA; // Descending order (newest first)
+      });
+    });
+
+    let content = '';
+
+    // Generate content for each channel
+    channelGroups.forEach((channelMessages, channelId) => {
+      const firstMsg = channelMessages[0];
+      const channelName = firstMsg.channel?.name || 'unknown';
+
+      // Add channel start header
+      content += `Channel start -- #${channelName} ${channelId}\n`;
+
+      // Add CSV data for this channel (without channel column)
+      const records = channelMessages.map((msg: SlackMessage) => [
+        msg.username || '',
+        msg.text || '',
+        msg.ts || '',
+        msg.isUnread ? 'true' : 'false',
+      ]);
+
+      const channelCsv = stringify([
+        ['username', 'text', 'time', 'isUnread'],
+        ...records,
+      ]);
+
+      content += channelCsv;
+      content += `Channel end -- #${channelName} ${channelId}\n\n`;
+    });
+
+    return content.trim();
+  }
+
   private async handleConversationsHistory(
     args: ConversationsHistoryArgs
   ): Promise<ToolResponse> {
@@ -165,18 +218,23 @@ export class SlackTools {
       };
     }
 
-    const historyResult = await this.slackClient.getConversationHistory({
-      channel: channel_id,
-      limit,
-    });
-
-    if (historyResult.success && historyResult.data) {
-      let content = 'userName,text,time,isUnread\n';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      historyResult.data.forEach((msg: any) => {
-        // Slack API message format is complex and dynamic
-        content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${msg.isUnread}\n`;
+    try {
+      const historyResult = await this.slackClient.getConversationHistory({
+        channel: channel_id,
+        limit,
       });
+
+      const records = historyResult.map((msg: any) => [
+        msg.username || '',
+        msg.text || '',
+        msg.ts || '',
+        msg.isUnread ? 'true' : 'false',
+      ]);
+
+      const content = stringify([
+        ['username', 'text', 'time', 'isUnread'],
+        ...records,
+      ]);
 
       return {
         content: [
@@ -186,12 +244,12 @@ export class SlackTools {
           },
         ],
       };
-    } else {
+    } catch (error) {
       return {
         content: [
           {
             type: 'text',
-            text: `Error fetching conversation history: ${historyResult.error}`,
+            text: `Error fetching conversation history: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,
@@ -228,19 +286,24 @@ export class SlackTools {
       };
     }
 
-    const repliesResult = await this.slackClient.getConversationReplies({
-      channel: channel_id,
-      ts: thread_ts,
-      limit,
-    });
-
-    if (repliesResult.success && repliesResult.data) {
-      let content = 'userName,text,time,thread_ts\n';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      repliesResult.data.forEach((msg: any) => {
-        // Slack API message format is complex and dynamic
-        content += `${msg.userName},${msg.text.replace(/\n/g, ' ')},${msg.time},${msg.thread_ts || ''}\n`;
+    try {
+      const repliesResult = await this.slackClient.getConversationReplies({
+        channel: channel_id,
+        ts: thread_ts,
+        limit,
       });
+
+      const records = repliesResult.map((msg: any) => [
+        msg.username || '',
+        msg.text || '',
+        msg.ts || '',
+        msg.thread_ts || '',
+      ]);
+
+      const content = stringify([
+        ['username', 'text', 'time', 'thread_ts'],
+        ...records,
+      ]);
 
       return {
         content: [
@@ -250,12 +313,12 @@ export class SlackTools {
           },
         ],
       };
-    } else {
+    } catch (error) {
       return {
         content: [
           {
             type: 'text',
-            text: `Error fetching thread replies: ${repliesResult.error}`,
+            text: `Error fetching thread replies: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,
@@ -268,21 +331,27 @@ export class SlackTools {
   ): Promise<ToolResponse> {
     const { query, count = 100, sort = 'timestamp', sort_dir = 'desc' } = args;
 
-    const searchResult = await this.slackClient.searchMessages({
-      query,
-      count,
-      sort,
-      sort_dir,
-    });
-
-    if (searchResult.success && searchResult.data) {
-      let content = 'userName,text,time,channel,isUnread\n';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      searchResult.data.forEach((msg: any) => {
-        // Slack search API returns dynamic message formats with channel name included
-        const channelName = msg.channel?.name || msg.channel;
-        content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName},${msg.isUnread}\n`;
+    try {
+      const searchResult = await this.slackClient.searchMessages({
+        query,
+        count,
+        sort,
+        sort_dir,
       });
+
+      const records = searchResult.map((msg: any) => [
+        msg.username || '',
+        msg.text || '',
+        msg.ts || '',
+        msg.channel?.name || msg.channel || '',
+        msg.channel?.id || '',
+        msg.isUnread ? 'true' : 'false',
+      ]);
+
+      const content = stringify([
+        ['username', 'text', 'time', 'channel', 'channelId', 'isUnread'],
+        ...records,
+      ]);
 
       return {
         content: [
@@ -292,12 +361,12 @@ export class SlackTools {
           },
         ],
       };
-    } else {
+    } catch (error) {
       return {
         content: [
           {
             type: 'text',
-            text: `Error searching messages: ${searchResult.error}`,
+            text: `Error searching messages: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,
@@ -313,19 +382,7 @@ export class SlackTools {
     try {
       // Get current user ID
       const authResult = await this.slackClient.getAuthTest();
-      if (!authResult.success || !authResult.data?.user_id) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Error: Failed to get current user ID',
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const userId = authResult.data.user_id;
+      const userId = authResult.user_id;
 
       // Calculate start date (N days ago)
       const startDate = subDays(new Date(), days);
@@ -337,8 +394,7 @@ export class SlackTools {
       const query = `with:${userId} after:${startDateStr}`;
 
       // Fetch multiple pages in parallel batches to get more messages faster
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allMessages: any[] = [];
+      const allMessages: SlackMessage[] = [];
       const maxPages = 10; // Fetch up to 10 pages (1000 messages max)
       const batchSize = 5; // Process 5 pages in parallel per batch
 
@@ -368,15 +424,15 @@ export class SlackTools {
         // Process results and check for end conditions
         let shouldStop = false;
         for (const result of batchResults) {
-          if (!result.success || !result.data || result.data.length === 0) {
+          if (!result || result.length === 0) {
             shouldStop = true;
             break;
           }
 
-          allMessages.push(...result.data);
+          allMessages.push(...result);
 
           // If we got less than 100 messages, we've reached the end
-          if (result.data.length < 100) {
+          if (result.length < 100) {
             shouldStop = true;
           }
         }
@@ -396,13 +452,7 @@ export class SlackTools {
           return timeB - timeA; // Descending order (newest first)
         });
 
-        let content = 'userName,text,time,channel,isUnread\n';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        allMessages.forEach((msg: any) => {
-          // Slack search API returns dynamic message formats with channel name included
-          const channelName = msg.channel?.name || msg.channel;
-          content += `${msg.userName},"${msg.text.replace(/"/g, '""').replace(/\n/g, ' ')}",${msg.time},${channelName},${msg.isUnread}\n`;
-        });
+        const content = this.formatMessagesGroupedByChannel(allMessages);
 
         return {
           content: [

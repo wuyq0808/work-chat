@@ -1,36 +1,31 @@
 import { WebClient } from '@slack/web-api';
-import type { Member } from '@slack/web-api/dist/types/response/UsersListResponse';
 import type { Channel } from '@slack/web-api/dist/types/response/ConversationsListResponse';
 import type { MessageElement } from '@slack/web-api/dist/types/response/ConversationsHistoryResponse';
 import type { Match } from '@slack/web-api/dist/types/response/SearchMessagesResponse';
+import NodeCache from 'node-cache';
 
-export interface SlackConfig {
-  userToken?: string;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
+export interface SlackMessage extends Match {
+  isUnread: boolean;
 }
 
 export class SlackAPIClient {
   private client: WebClient;
-  private config: SlackConfig;
-  private usersCache: Map<string, Member> = new Map();
-  private usersInvCache: Map<string, string> = new Map();
+
   private channelsCache: Map<string, Channel> = new Map();
+  private conversationInfoCache: NodeCache;
 
-  constructor(config: SlackConfig) {
-    this.config = config;
-
-    // Use user token
-    const token = config.userToken;
+  constructor(token: string) {
     if (!token) {
       throw new Error('userToken must be provided');
     }
 
     this.client = new WebClient(token);
+
+    // Initialize conversation info cache with 1 minute TTL
+    this.conversationInfoCache = new NodeCache({
+      stdTTL: 60, // 1 minute in seconds
+      checkperiod: 120, // Check for expired keys every 2 minutes
+    });
   }
 
   async getConversationHistory(params: {
@@ -39,84 +34,63 @@ export class SlackAPIClient {
     oldest?: string;
     latest?: string;
     cursor?: string;
-  }): Promise<ApiResponse<Array<MessageElement & { isUnread: boolean }>>> {
-    try {
-      // Resolve channel name to ID if needed
-      let channelId = params.channel;
-      if (
-        params.channel &&
-        typeof params.channel === 'string' &&
-        params.channel.startsWith('#')
-      ) {
-        const channelName = params.channel.substring(1);
-        const channel = Array.from(this.channelsCache.values()).find(
-          c => c.name === channelName
-        );
-        if (channel?.id) {
-          channelId = channel.id;
-        } else {
-          return {
-            success: false,
-            error: `Channel ${params.channel} not found`,
-          };
-        }
+  }): Promise<Array<MessageElement & { isUnread: boolean }>> {
+    // Resolve channel name to ID if needed
+    let channelId = params.channel;
+    if (
+      params.channel &&
+      typeof params.channel === 'string' &&
+      params.channel.startsWith('#')
+    ) {
+      const channelName = params.channel.substring(1);
+      const channel = Array.from(this.channelsCache.values()).find(
+        c => c.name === channelName
+      );
+      if (channel?.id) {
+        channelId = channel.id;
+      } else {
+        throw new Error(`Channel ${params.channel} not found`);
       }
-
-      const result = await this.client.conversations.history({
-        channel: channelId,
-        limit: params.limit || 10,
-        oldest: params.oldest,
-        latest: params.latest,
-        cursor: params.cursor,
-        inclusive: false,
-      });
-
-      if (!result.ok || !result.messages) {
-        return {
-          success: false,
-          error: 'Failed to fetch conversation history',
-        };
-      }
-
-      // Get conversation info for last_read timestamp
-      const infoResult = await this.getConversationInfo(channelId);
-      const lastRead = infoResult.success
-        ? infoResult.data?.last_read
-        : undefined;
-
-      const messages: Array<MessageElement & { isUnread: boolean }> = [];
-
-      for (const msg of result.messages) {
-        const message = msg as MessageElement;
-
-        if (message.subtype && message.subtype !== '') {
-          // Skip system messages unless it's a regular message
-          continue;
-        }
-
-        // Process the message text and add unread status
-        const processedMessage = {
-          ...message,
-          text: this.processText(message.text || ''),
-          isUnread: this.isMessageUnread(message.ts || '', lastRead),
-        };
-
-        messages.push(processedMessage);
-      }
-
-      // Add cursor for pagination if there are more messages
-      // Note: cursor is handled by response_metadata, not individual messages
-
-      return {
-        success: true,
-        data: messages,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
     }
+
+    const result = await this.client.conversations.history({
+      channel: channelId,
+      limit: params.limit || 10,
+      oldest: params.oldest,
+      latest: params.latest,
+      cursor: params.cursor,
+      inclusive: false,
+    });
+
+    if (!result.ok || !result.messages) {
+      throw new Error('Failed to fetch conversation history');
+    }
+
+    // Get conversation info for last_read timestamp
+    const conversationInfo = await this.getConversationInfo(channelId);
+    const lastRead = conversationInfo?.last_read;
+
+    const messages: Array<MessageElement & { isUnread: boolean }> = [];
+
+    for (const msg of result.messages) {
+      const message = msg as MessageElement;
+
+      if (message.subtype && message.subtype !== '') {
+        // Skip system messages unless it's a regular message
+        continue;
+      }
+
+      // Process the message text and add unread status
+      const processedMessage = {
+        ...message,
+        text: message.text || '',
+        isUnread: this.isMessageUnread(message.ts || '', lastRead),
+      };
+
+      messages.push(processedMessage);
+    }
+
+    return messages;
   }
 
   async getConversationReplies(params: {
@@ -126,7 +100,7 @@ export class SlackAPIClient {
     oldest?: string;
     latest?: string;
     cursor?: string;
-  }): Promise<ApiResponse<MessageElement[]>> {
+  }): Promise<MessageElement[]> {
     try {
       // Resolve channel name to ID if needed
       let channelId = params.channel;
@@ -142,10 +116,7 @@ export class SlackAPIClient {
         if (channel?.id) {
           channelId = channel.id;
         } else {
-          return {
-            success: false,
-            error: `Channel ${params.channel} not found`,
-          };
+          throw new Error(`Channel ${params.channel} not found`);
         }
       }
 
@@ -160,10 +131,7 @@ export class SlackAPIClient {
       });
 
       if (!result.ok || !result.messages) {
-        return {
-          success: false,
-          error: 'Failed to fetch conversation replies',
-        };
+        throw new Error('Failed to fetch conversation replies');
       }
 
       const messages: MessageElement[] = [];
@@ -179,7 +147,7 @@ export class SlackAPIClient {
         // Process the message text
         const processedMessage: MessageElement = {
           ...message,
-          text: this.processText(message.text || ''),
+          text: message.text || '',
         };
 
         messages.push(processedMessage);
@@ -188,15 +156,9 @@ export class SlackAPIClient {
       // Add cursor for pagination if there are more messages
       // Note: cursor is handled by response_metadata, not individual messages
 
-      return {
-        success: true,
-        data: messages,
-      };
+      return messages;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      throw error instanceof Error ? error : new Error('Unknown error');
     }
   }
 
@@ -206,7 +168,7 @@ export class SlackAPIClient {
     page?: number;
     sort?: 'score' | 'timestamp';
     sort_dir?: 'asc' | 'desc';
-  }): Promise<ApiResponse<Array<Match & { isUnread: boolean }>>> {
+  }): Promise<SlackMessage[]> {
     try {
       const result = await this.client.search.messages({
         query: params.query,
@@ -217,10 +179,7 @@ export class SlackAPIClient {
       });
 
       if (!result.ok || !result.messages?.matches) {
-        return {
-          success: false,
-          error: 'Failed to search messages',
-        };
+        throw new Error('Failed to search messages');
       }
 
       // Group messages by channel to minimize API calls
@@ -235,20 +194,24 @@ export class SlackAPIClient {
       const channelLastRead = new Map<string, string>();
       await Promise.all(
         Array.from(channelIds).map(async channelId => {
-          const infoResult = await this.getConversationInfo(channelId);
-          if (infoResult.success && infoResult.data?.last_read) {
-            channelLastRead.set(channelId, infoResult.data.last_read);
+          try {
+            const infoResult = await this.getConversationInfo(channelId);
+            if (infoResult.last_read) {
+              channelLastRead.set(channelId, infoResult.last_read);
+            }
+          } catch {
+            // Ignore errors for individual channels
           }
         })
       );
 
-      const matches: Array<Match & { isUnread: boolean }> = [];
+      const matches: SlackMessage[] = [];
 
       for (const match of result.messages.matches) {
         // Process the match text and add unread status
         const processedMatch = {
           ...match,
-          text: this.processText(match.text || ''),
+          text: match.text || '',
           isUnread: this.isMessageUnread(
             match.ts || '',
             channelLastRead.get(match.channel?.id || '')
@@ -258,33 +221,10 @@ export class SlackAPIClient {
         matches.push(processedMatch);
       }
 
-      return {
-        success: true,
-        data: matches,
-      };
+      return matches;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      throw error instanceof Error ? error : new Error('Unknown error');
     }
-  }
-
-  private processText(text: string): string {
-    // Basic text processing - convert user/channel mentions
-    return text
-      .replace(/<@(\w+)>/g, (match, userId) => {
-        const user = this.usersCache.get(userId);
-        return user ? `@${user.name}` : match;
-      })
-      .replace(/<#(\w+)\|([^>]+)>/g, '@$2')
-      .replace(/<#(\w+)>/g, (match, channelId) => {
-        const channel = this.channelsCache.get(channelId);
-        return channel ? `#${channel.name}` : match;
-      })
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&');
   }
 
   // Helper function to determine if a message is unread
@@ -306,132 +246,58 @@ export class SlackAPIClient {
     return messageTime > lastReadTime;
   }
 
-  async getConversationInfo(channelId: string): Promise<
-    ApiResponse<{
-      last_read?: string;
-      unread_count?: number;
-      unread_count_display?: number;
-    }>
-  > {
+  async getConversationInfo(channelId: string): Promise<{
+    last_read?: string;
+  }> {
     try {
+      // Check cache first
+      const cachedInfo = this.conversationInfoCache.get<{
+        last_read?: string;
+      }>(channelId);
+
+      if (cachedInfo) {
+        return cachedInfo;
+      }
+
+      // Cache miss - fetch from API
       const result = await this.client.conversations.info({
         channel: channelId,
       });
 
       if (!result.ok || !result.channel) {
-        return {
-          success: false,
-          error: 'Failed to fetch conversation info',
-        };
+        throw new Error('Failed to fetch conversation info');
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const channel = result.channel as any;
 
-      return {
-        success: true,
-        data: {
-          last_read: channel.last_read,
-          unread_count: channel.unread_count,
-          unread_count_display: channel.unread_count_display,
-        },
+      const conversationInfo = {
+        last_read: channel.last_read,
       };
+
+      // Cache the result
+      this.conversationInfoCache.set(channelId, conversationInfo);
+
+      return conversationInfo;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      throw error instanceof Error ? error : new Error('Unknown error');
     }
   }
 
-  async getAuthTest(): Promise<ApiResponse<{ user_id: string; user: string }>> {
+  async getAuthTest(): Promise<{ user_id: string; user: string }> {
     try {
       const result = await this.client.auth.test();
 
       if (!result.ok || !result.user_id || !result.user) {
-        return {
-          success: false,
-          error: 'Failed to get auth test info',
-        };
+        throw new Error('Failed to get auth test info');
       }
 
       return {
-        success: true,
-        data: {
-          user_id: result.user_id,
-          user: result.user,
-        },
+        user_id: result.user_id,
+        user: result.user,
       };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  async getChannels(): Promise<ApiResponse<Channel[]>> {
-    try {
-      const result = await this.client.conversations.list({
-        types: 'public_channel,private_channel',
-        limit: 100,
-      });
-
-      if (!result.ok || !result.channels) {
-        return {
-          success: false,
-          error: 'Failed to fetch channels',
-        };
-      }
-
-      // Update cache
-      result.channels.forEach(channel => {
-        if (channel.id) {
-          this.channelsCache.set(channel.id, channel);
-        }
-      });
-
-      return {
-        success: true,
-        data: result.channels as Channel[],
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-
-  async getUsers(): Promise<ApiResponse<Member[]>> {
-    try {
-      const result = await this.client.users.list({
-        limit: 100,
-      });
-
-      if (!result.ok || !result.members) {
-        return {
-          success: false,
-          error: 'Failed to fetch users',
-        };
-      }
-
-      // Update cache
-      result.members.forEach(member => {
-        if (member.id) {
-          this.usersCache.set(member.id, member);
-        }
-      });
-
-      return {
-        success: true,
-        data: result.members as Member[],
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      throw error instanceof Error ? error : new Error('Unknown error');
     }
   }
 }

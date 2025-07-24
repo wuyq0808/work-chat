@@ -98,20 +98,21 @@ ${userContextInfo}
 Available tools:
 ${toolsList}
 
-## SEARCH STRATEGY
-For vague requests like "find me something" or "show me something important":
+## FOR VAGUE REQUEST like "find me something" or "show me something important":
 - Prioritize tools slack__get_user_recent_messages azure__get_recent_emails azure__get_upcoming_calendar
-- Prioritize unread messages 
+- Prioritize unread messages and recent content
 - Prioritize Slack, Emails
-- Aim for more than 20 pieces of information if request is vague
-- Display Name, not ID for Slack users and channels
-- Keep responses concise
-- Do not translate messages, response in their original language
+- Aim for more than 30 pieces of information if request is vague
+- Concise responses
+- Do not translate, response in original language
+- List actionable next steps based on the search results (e.g., "Reply to John's message about the project deadline", "Review the budget proposal in your email")
+
+## FOR NON-VAGUE REQUEST
+- Use keyword search across all platforms
 
 ## QUALITY ASSURANCE
 - Be persistent in finding relevant results before responding
 - If initial results are poor, do additional search rounds with different approaches
-- Use all the tools available to get comprehensive results
 - Never ask follow-up questions or suggest ways to make requests more specific`);
   }
 
@@ -147,9 +148,7 @@ For vague requests like "find me something" or "show me something important":
 
     // Setup Slack tools
     if (request.slackToken) {
-      const slackClient = new SlackAPIClient({
-        userToken: request.slackToken,
-      });
+      const slackClient = new SlackAPIClient(request.slackToken);
       const slackTools = new SlackTools(slackClient);
       allTools.push(...slackTools.getTools());
     }

@@ -3,7 +3,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { SlackAPIClient, type SlackConfig } from './slack-client.js';
+import { SlackAPIClient } from './slack-client.js';
 import { SlackTools } from './slack-tools.js';
 import { getToolDefinitions, executeTool } from '../utils/mcp-utils.js';
 
@@ -12,9 +12,12 @@ export class SlackMCPStdioServer {
   private server: Server;
   private tools: SlackTools;
 
-  constructor(config: SlackConfig) {
+  constructor(userToken: string) {
     // Initialize Slack client
-    this.slackClient = new SlackAPIClient(config);
+    if (!userToken) {
+      throw new Error('userToken must be provided');
+    }
+    this.slackClient = new SlackAPIClient(userToken);
 
     // Initialize tool handlers
     this.tools = new SlackTools(this.slackClient);
