@@ -6,7 +6,6 @@ import type { Match } from '@slack/web-api/dist/types/response/SearchMessagesRes
 
 export interface SlackConfig {
   userToken?: string;
-  addMessageToolEnabled?: boolean;
 }
 
 export interface ApiResponse<T> {
@@ -362,6 +361,71 @@ export class SlackAPIClient {
           user_id: result.user_id,
           user: result.user,
         },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async getChannels(): Promise<ApiResponse<Channel[]>> {
+    try {
+      const result = await this.client.conversations.list({
+        types: 'public_channel,private_channel',
+        limit: 100,
+      });
+
+      if (!result.ok || !result.channels) {
+        return {
+          success: false,
+          error: 'Failed to fetch channels',
+        };
+      }
+
+      // Update cache
+      result.channels.forEach(channel => {
+        if (channel.id) {
+          this.channelsCache.set(channel.id, channel);
+        }
+      });
+
+      return {
+        success: true,
+        data: result.channels as Channel[],
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async getUsers(): Promise<ApiResponse<Member[]>> {
+    try {
+      const result = await this.client.users.list({
+        limit: 100,
+      });
+
+      if (!result.ok || !result.members) {
+        return {
+          success: false,
+          error: 'Failed to fetch users',
+        };
+      }
+
+      // Update cache
+      result.members.forEach(member => {
+        if (member.id) {
+          this.usersCache.set(member.id, member);
+        }
+      });
+
+      return {
+        success: true,
+        data: result.members as Member[],
       };
     } catch (error) {
       return {

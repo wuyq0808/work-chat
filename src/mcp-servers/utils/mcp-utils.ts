@@ -1,4 +1,6 @@
-import { StructuredTool } from '@langchain/core/tools';
+import { StructuredTool, type ToolSchemaBase } from '@langchain/core/tools';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 
 export interface ToolResponse {
   content: Array<{
@@ -12,8 +14,7 @@ export interface ToolResponse {
 export interface ToolDefinition {
   name: string;
   description: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  inputSchema: any; // Zod schema shapes vary and are complex to type precisely
+  inputSchema: Record<string, unknown>; // JSON Schema object
 }
 
 /**
@@ -25,40 +26,30 @@ export function getToolDefinitions(tools: StructuredTool[]): ToolDefinition[] {
   return tools.map(tool => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: extractSchemaShape(tool.schema),
+    inputSchema: convertToJsonSchema(tool.schema),
   }));
 }
 
 /**
- * Safely extract schema shape from Zod schema or JSON schema
+ * Convert Zod schema to proper JSON Schema format for MCP compatibility
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function extractSchemaShape(schema: any): any {
-  // Handle Zod schemas
-  if (schema && typeof schema === 'object') {
-    // Try direct shape access first
-    if ('shape' in schema) {
-      return schema.shape;
-    }
-
-    // Try _def.schema.shape for nested Zod schemas
-    if (schema._def?.schema?.shape) {
-      return schema._def.schema.shape;
-    }
-
-    // Try _def.shape for direct Zod object schemas
-    if (schema._def?.shape) {
-      return schema._def.shape;
-    }
-
-    // If it's already a JSON schema, return as-is
-    if (schema.type || schema.properties || schema.$ref) {
-      return schema;
-    }
+function convertToJsonSchema(schema: ToolSchemaBase): Record<string, unknown> {
+  if (!schema || typeof schema !== 'object') {
+    return {};
   }
 
-  // Fallback: return the schema as-is
-  return schema;
+  // If it's already a JSON schema, return as-is
+  if ('type' in schema || 'properties' in schema || '$ref' in schema) {
+    return schema as Record<string, unknown>;
+  }
+
+  // Use the zod-to-json-schema library for proper conversion
+  try {
+    return zodToJsonSchema(schema as z.ZodType, { target: 'jsonSchema7' });
+  } catch (error) {
+    console.error('Error converting Zod schema to JSON Schema:', error);
+    return {};
+  }
 }
 
 /**
