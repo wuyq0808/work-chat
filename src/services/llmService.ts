@@ -1,5 +1,5 @@
 import { RetryableClaudeBedrockChat } from '../llm-clients/claude-bedrock.js';
-import { LangChainChatHandler } from '../lib/LangChainChatHandler.js';
+import { LangChainChatHandler } from '../llm/LangChainChat.js';
 
 export type AIProvider = 'claude-bedrock-37' | 'claude-bedrock-35';
 

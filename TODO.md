@@ -1,0 +1,46 @@
+# TODO
+
+## CRITICAL: Conversation Cache Implementation
+
+- [ ] **CRITICAL**: Create proper cache for conversations - they are now stored in memory permanently
+  - Current issue: `conversationHistories` Map in LangChainChat grows indefinitely
+  - Need TTL-based cache or persistent storage with cleanup
+  - Memory leak risk in production
+  - Consider Redis, file-based cache, or in-memory LRU with expiration
+
+## GitHub Integration
+
+- [ ] Implement GitHub OAuth service
+  - Follow pattern from existing OAuth services (Azure, Slack, Atlassian)
+  - Add GitHub OAuth endpoints to server
+- [ ] Create GitHub API client
+  - Similar to existing clients in `src/mcp-servers/`
+  - Handle authentication and rate limiting
+- [ ] Develop GitHub tools
+  - Repository search and browsing
+  - Issue management (create, update, search)
+  - Pull request operations
+  - Commit history and file operations
+
+## Slack Context Enhancement
+
+- [ ] Improve Slack latest messages context
+  - Current issue: Only shows messages to/from user (mentions)
+  - Enhancement: Query recent channel history to construct complete conversation context
+  - Show thread context and related messages for better understanding
+  - Consider message threading and reply chains
+
+## ClickUp Integration
+
+- [ ] Implement ClickUp OAuth service
+  - Follow pattern from existing OAuth services (Azure, Slack, Atlassian)
+  - Add ClickUp OAuth endpoints to server
+- [ ] Create ClickUp API client
+  - Similar to existing clients in `src/mcp-servers/`
+  - Handle authentication and rate limiting
+- [ ] Develop ClickUp tools
+  - Task management (create, update, search, assign)
+  - Workspace and space browsing
+  - Time tracking operations
+  - Comment and collaboration features
+  - Goal and milestone tracking

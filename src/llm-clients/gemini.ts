@@ -33,13 +33,13 @@ class RetryableGeminiChat {
   }
 }
 
-// Export function to create Gemini chat model for LangChainChatHandler
+// Export function to create Gemini chat model for LangChainChat
 export function createGeminiChatModel(): RetryableGeminiChat {
   return new RetryableGeminiChat();
 }
 
 export async function callGemini(_request: AIRequest): Promise<string> {
   throw new Error(
-    'callGemini is deprecated - Gemini is now handled through LangChainChatHandler in llmService'
+    'callGemini is deprecated - Gemini is now handled through LangChainChat in llmService'
   );
 }
