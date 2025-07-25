@@ -44,3 +44,17 @@
   - Time tracking operations
   - Comment and collaboration features
   - Goal and milestone tracking
+
+## Azure Email Tool Enhancement
+
+- [ ] Modify get email method to accept keyword search instead of specific message IDs
+  - Current issue: Tool requires specific messageId which users don't know
+  - Enhancement: Allow searching emails by keywords, subject, sender, date range
+  - Remove dependency on specific email IDs for better usability
+
+## Desktop App Packaging
+
+- [ ] Implement Electron packaging for desktop app distribution
+  - Package Express server as sidecar process or embedded server
+  - Handle OAuth flows with proper redirect URI handling for desktop environment
+  - Create macOS installer (.dmg)
