@@ -35,6 +35,10 @@ interface GetUpcomingCalendarArgs {
   days?: number;
 }
 
+interface GetEmailsAndCalendarArgs {
+  days?: number;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -144,6 +148,24 @@ export class AzureTools {
               .string()
               .describe(
                 'The message ID of the email to retrieve full content for'
+              ),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(await this.handleGetEmailsAndCalendar(input)),
+        {
+          name: 'azure__get_emails_and_calendar',
+          description:
+            'Get latest emails and upcoming calendar events in parallel (more efficient than separate calls)',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe(
+                'Number of days to look back for emails and ahead for calendar (default: 14 for emails, 7 for calendar)'
               ),
           }),
         }
@@ -450,6 +472,75 @@ export class AzureTools {
           {
             type: 'text',
             text: `Error getting upcoming events: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetEmailsAndCalendar(
+    args: GetEmailsAndCalendarArgs
+  ): Promise<ToolResponse> {
+    const { days = 14 } = args;
+
+    try {
+      // Call both email and calendar methods in parallel for efficiency
+      const [emailsResult, calendarResult] = await Promise.all([
+        this.handleGetLatestEmails({ days }),
+        this.handleGetUpcomingCalendar({ days: Math.min(days, 30) }), // Cap calendar to 30 days max
+      ]);
+
+      // Check if both operations succeeded
+      if (emailsResult.isError && calendarResult.isError) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Both email and calendar retrieval failed:\nEmails: ${emailsResult.content[0]?.text}\nCalendar: ${calendarResult.content[0]?.text}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Combine results with clear section headers
+      let combinedText = '';
+
+      // Add emails section
+      if (!emailsResult.isError && emailsResult.content[0]?.text) {
+        combinedText += '=== LATEST EMAILS ===\n';
+        combinedText += emailsResult.content[0].text;
+        combinedText += '\n\n';
+      } else if (emailsResult.isError) {
+        combinedText += '=== LATEST EMAILS ===\n';
+        combinedText += `Error: ${emailsResult.content[0]?.text}\n\n`;
+      }
+
+      // Add calendar section
+      if (!calendarResult.isError && calendarResult.content[0]?.text) {
+        combinedText += '=== UPCOMING CALENDAR ===\n';
+        combinedText += calendarResult.content[0].text;
+      } else if (calendarResult.isError) {
+        combinedText += '=== UPCOMING CALENDAR ===\n';
+        combinedText += `Error: ${calendarResult.content[0]?.text}`;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: combinedText.trim(),
+          },
+        ],
+        isError: emailsResult.isError && calendarResult.isError, // Only error if both failed
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting emails and calendar: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,

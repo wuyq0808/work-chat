@@ -99,7 +99,7 @@ Available tools:
 ${toolsList}
 
 ## FOR VAGUE REQUEST like "find me something" or "show me something important":
-- Prioritize tools slack__get_latest_messages azure__get_recent_emails atlassian__get_latest_issues atlassian__confluence_get_latest_pages azure__get_upcoming_calendar
+- Prioritize tools slack__get_latest_messages azure__get_emails_and_calendar atlassian__jira_get_latest_issues atlassian__confluence_get_latest_pages
 - Prioritize Slack, Emails, recent content
 - Aim for more than 30 pieces of information if request is vague
 - Concise responses
