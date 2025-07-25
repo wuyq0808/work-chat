@@ -1,8 +1,7 @@
-import { createClaudeBedrockChatModel } from '../llm-clients/claude-bedrock.js';
-import { createGeminiChatModel } from '../llm-clients/gemini.js';
+import { RetryableClaudeBedrockChat } from '../llm-clients/claude-bedrock.js';
 import { LangChainChatHandler } from '../lib/LangChainChatHandler.js';
 
-export type AIProvider = 'claude-bedrock' | 'gemini';
+export type AIProvider = 'claude-bedrock-37' | 'claude-bedrock-35';
 
 export interface AIRequest {
   input: string;
@@ -21,10 +20,33 @@ export interface StreamingAIRequest extends AIRequest {
   onProgress?: (event: { type: string; data: any }) => void;
 }
 
+async function handleClaudeBedrockChat(
+  request: StreamingAIRequest,
+  version: '35' | '37'
+): Promise<string> {
+  if (!request.conversationId) {
+    throw new Error('conversationId is required for Claude Bedrock');
+  }
+
+  const claudeBedrockModel = new RetryableClaudeBedrockChat(version);
+  const claudeBedrockHandler = new LangChainChatHandler(claudeBedrockModel);
+  return claudeBedrockHandler.handleChat({
+    input: request.input,
+    slackToken: request.slackToken,
+    azureToken: request.azureToken,
+    atlassianToken: request.atlassianToken,
+    azureName: request.azureName,
+    slackUserId: request.slackUserId,
+    conversationId: request.conversationId,
+    timezone: request.timezone,
+    onProgress: request.onProgress,
+  });
+}
+
 export async function callAIWithStream(
   request: StreamingAIRequest
 ): Promise<string> {
-  const provider = request.provider || 'gemini';
+  const provider = request.provider || 'claude-bedrock-37';
 
   // Validate that at least one token is provided
   if (!request.slackToken && !request.azureToken && !request.atlassianToken) {
@@ -34,45 +56,10 @@ export async function callAIWithStream(
   }
 
   switch (provider) {
-    case 'claude-bedrock': {
-      // Use LangChainChatHandler for Claude Bedrock
-      if (!request.conversationId) {
-        throw new Error('conversationId is required for Claude Bedrock');
-      }
-
-      const claudeBedrockModel = createClaudeBedrockChatModel();
-      const claudeBedrockHandler = new LangChainChatHandler(claudeBedrockModel);
-      return claudeBedrockHandler.handleChat({
-        input: request.input,
-        slackToken: request.slackToken,
-        azureToken: request.azureToken,
-        atlassianToken: request.atlassianToken,
-        azureName: request.azureName,
-        slackUserId: request.slackUserId,
-        conversationId: request.conversationId,
-        timezone: request.timezone,
-        onProgress: request.onProgress,
-      });
-    }
-    case 'gemini': {
-      // Use LangChainChatHandler for Gemini
-      if (!request.conversationId) {
-        throw new Error('conversationId is required for Gemini');
-      }
-      const geminiModel = createGeminiChatModel();
-      const geminiHandler = new LangChainChatHandler(geminiModel);
-      return geminiHandler.handleChat({
-        input: request.input,
-        slackToken: request.slackToken,
-        azureToken: request.azureToken,
-        atlassianToken: request.atlassianToken,
-        azureName: request.azureName,
-        slackUserId: request.slackUserId,
-        conversationId: request.conversationId,
-        timezone: request.timezone,
-        onProgress: request.onProgress,
-      });
-    }
+    case 'claude-bedrock-37':
+      return handleClaudeBedrockChat(request, '37');
+    case 'claude-bedrock-35':
+      return handleClaudeBedrockChat(request, '35');
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }

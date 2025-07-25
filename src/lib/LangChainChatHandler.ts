@@ -104,7 +104,6 @@ ${toolsList}
 - Aim for more than 30 pieces of information if request is vague
 - Concise responses
 - Put upcoming meetings & events after works and discussions. 
-- Prioritize 1 on 1 meetings especially, and small scale private meetings.
 - Do not translate, response in original language
 - List actionable next steps based on the search results (e.g., "Reply to John's message about the project deadline", "Review the budget proposal in your email")
 

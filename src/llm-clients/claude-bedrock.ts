@@ -8,14 +8,19 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 
 // Create a wrapper that implements retry logic for Claude Bedrock using modern LangChain AWS integration
-class RetryableClaudeBedrockChat {
+export class RetryableClaudeBedrockChat {
   private bedrock: ChatBedrockConverse;
+  private version: '35' | '37';
 
-  constructor() {
+  constructor(version: '35' | '37') {
+    this.version = version;
     // Check if AWS credentials are provided
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const modelId = process.env.AWS_BEDROCK_CLAUDE_MODEL_ID;
+    const modelId =
+      this.version === '35'
+        ? process.env.AWS_BEDROCK_CLAUDE_35_MODEL_ID
+        : process.env.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
@@ -25,7 +30,7 @@ class RetryableClaudeBedrockChat {
 
     if (!modelId) {
       throw new Error(
-        'AWS_BEDROCK_CLAUDE_MODEL_ID environment variable is required.'
+        `AWS_BEDROCK_CLAUDE_${this.version}_MODEL_ID environment variable is required.`
       );
     }
 
@@ -57,21 +62,25 @@ class RetryableClaudeBedrockChat {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain tool types are complex
   bindTools(tools: any[]): RetryableClaudeBedrockChat {
     const boundBedrock = this.bedrock.bindTools(tools);
-    const wrapper = new RetryableClaudeBedrockChat();
+    const wrapper = new RetryableClaudeBedrockChat(this.version);
     wrapper.bedrock = boundBedrock as ChatBedrockConverse;
     return wrapper;
   }
 }
 
-// Export function to create Claude Bedrock chat model for LangChainChatHandler
-export function createClaudeBedrockChatModel(): RetryableClaudeBedrockChat {
-  return new RetryableClaudeBedrockChat();
-}
 
-export async function callClaudeBedrock(request: AIRequest): Promise<string> {
-  if (!process.env.AWS_BEDROCK_CLAUDE_MODEL_ID) {
+export async function callClaudeBedrock(
+  request: AIRequest,
+  version: '35' | '37'
+): Promise<string> {
+  const modelEnvVar =
+    version === '35'
+      ? process.env.AWS_BEDROCK_CLAUDE_35_MODEL_ID
+      : process.env.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
+
+  if (!modelEnvVar) {
     throw new Error(
-      'AWS_BEDROCK_CLAUDE_MODEL_ID environment variable is required'
+      `AWS_BEDROCK_CLAUDE_${version}_MODEL_ID environment variable is required`
     );
   }
 
@@ -85,7 +94,7 @@ export async function callClaudeBedrock(request: AIRequest): Promise<string> {
   });
 
   const conversation = {
-    modelId: process.env.AWS_BEDROCK_CLAUDE_MODEL_ID,
+    modelId: modelEnvVar,
     messages: [
       {
         role: ConversationRole.USER,
