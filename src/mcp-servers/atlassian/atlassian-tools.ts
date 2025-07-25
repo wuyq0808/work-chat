@@ -31,6 +31,10 @@ interface GetLatestConfluencePagesArgs {
   includeUserMentions?: boolean;
 }
 
+interface GetLatestActivityArgs {
+  days?: number;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -164,6 +168,22 @@ export class AtlassianTools {
               .describe(
                 'Include pages where current user is mentioned (default: true)'
               ),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(await this.handleGetLatestActivity(input)),
+        {
+          name: 'atlassian__get_latest_activity',
+          description:
+            'Get latest activity from both Jira issues and Confluence pages in parallel - provides comprehensive overview of recent activity',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe('Number of days to look back (default: 14)'),
           }),
         }
       ),
@@ -640,6 +660,78 @@ export class AtlassianTools {
           {
             type: 'text',
             text: `Error getting latest Confluence pages: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetLatestActivity(
+    args: GetLatestActivityArgs
+  ): Promise<ToolResponse> {
+    const { days = 14 } = args;
+
+    try {
+      // Call both Jira and Confluence tools in parallel
+      const [jiraResult, confluenceResult] = await Promise.all([
+        this.handleGetUserLatestIssues({ days }),
+        this.handleGetLatestConfluencePages({
+          days,
+          maxResults: 10,
+          includeUserMentions: true,
+        }),
+      ]);
+
+      // Check if both calls were successful
+      if (jiraResult.isError && confluenceResult.isError) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting latest activity:\nJira: ${jiraResult.content[0]?.text}\nConfluence: ${confluenceResult.content[0]?.text}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Combine results
+      let combinedText = '';
+
+      // Add Jira results
+      if (!jiraResult.isError && jiraResult.content[0]?.text) {
+        combinedText += '# Latest Jira Issues\n\n';
+        combinedText += jiraResult.content[0].text;
+        combinedText += '\n\n';
+      } else if (jiraResult.isError) {
+        combinedText += '# Latest Jira Issues\n\n';
+        combinedText += `Error: ${jiraResult.content[0]?.text}\n\n`;
+      }
+
+      // Add Confluence results
+      if (!confluenceResult.isError && confluenceResult.content[0]?.text) {
+        combinedText += '# Latest Confluence Pages\n\n';
+        combinedText += confluenceResult.content[0].text;
+      } else if (confluenceResult.isError) {
+        combinedText += '# Latest Confluence Pages\n\n';
+        combinedText += `Error: ${confluenceResult.content[0]?.text}`;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: combinedText.trim(),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting latest activity: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,
