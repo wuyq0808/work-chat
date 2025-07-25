@@ -68,7 +68,6 @@ export class RetryableClaudeBedrockChat {
   }
 }
 
-
 export async function callClaudeBedrock(
   request: AIRequest,
   version: '35' | '37'

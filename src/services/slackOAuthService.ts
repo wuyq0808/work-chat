@@ -1,23 +1,24 @@
 import type { Request, Response } from 'express';
 import { InstallProvider } from '@slack/oauth';
 import { asyncHandler } from '../middleware/errorHandler.js';
+import type { SlackConfig } from '../utils/secrets-manager.js';
 
 export class SlackOAuthService {
   private installer: InstallProvider;
 
-  constructor() {
+  constructor(config: SlackConfig) {
     if (
-      !process.env.SLACK_CLIENT_ID ||
-      !process.env.SLACK_CLIENT_SECRET ||
-      !process.env.SLACK_STATE_SECRET
+      !config.SLACK_CLIENT_ID ||
+      !config.SLACK_CLIENT_SECRET ||
+      !config.SLACK_STATE_SECRET
     ) {
-      throw new Error('Missing required Slack environment variables');
+      throw new Error('Missing required Slack configuration');
     }
 
     this.installer = new InstallProvider({
-      clientId: process.env.SLACK_CLIENT_ID,
-      clientSecret: process.env.SLACK_CLIENT_SECRET,
-      stateSecret: process.env.SLACK_STATE_SECRET,
+      clientId: config.SLACK_CLIENT_ID,
+      clientSecret: config.SLACK_CLIENT_SECRET,
+      stateSecret: config.SLACK_STATE_SECRET,
       installUrlOptions: {
         scopes: [], // Bot scopes (empty for user token only)
         userScopes: [
@@ -36,7 +37,7 @@ export class SlackOAuthService {
           'search:read.private',
           'search:read.public',
         ],
-        redirectUri: process.env.SLACK_REDIRECT_URI,
+        redirectUri: config.SLACK_REDIRECT_URI,
       },
       installationStore: {
         storeInstallation: async _installation => {

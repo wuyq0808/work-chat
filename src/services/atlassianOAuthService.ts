@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { setAtlassianCookies } from '../utils/cookie-utils.js';
 import type { AtlassianTokenResponse } from '../types/atlassian.js';
+import type { AtlassianConfig } from '../utils/secrets-manager.js';
 
 export class AtlassianOAuthService {
   private clientId: string;
@@ -9,18 +10,18 @@ export class AtlassianOAuthService {
   private redirectUri: string;
   private scopes: string[];
 
-  constructor() {
+  constructor(config: AtlassianConfig) {
     if (
-      !process.env.ATLASSIAN_CLIENT_ID ||
-      !process.env.ATLASSIAN_CLIENT_SECRET ||
-      !process.env.ATLASSIAN_REDIRECT_URI
+      !config.ATLASSIAN_CLIENT_ID ||
+      !config.ATLASSIAN_CLIENT_SECRET ||
+      !config.ATLASSIAN_REDIRECT_URI
     ) {
-      throw new Error('Missing required Atlassian environment variables');
+      throw new Error('Missing required Atlassian configuration');
     }
 
-    this.clientId = process.env.ATLASSIAN_CLIENT_ID;
-    this.clientSecret = process.env.ATLASSIAN_CLIENT_SECRET;
-    this.redirectUri = process.env.ATLASSIAN_REDIRECT_URI;
+    this.clientId = config.ATLASSIAN_CLIENT_ID;
+    this.clientSecret = config.ATLASSIAN_CLIENT_SECRET;
+    this.redirectUri = config.ATLASSIAN_REDIRECT_URI;
     this.scopes = [
       'read:me', // Required for user info
       'read:jira-user',

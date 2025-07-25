@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { setAzureCookies } from '../utils/cookie-utils.js';
+import type { AzureConfig } from '../utils/secrets-manager.js';
 
 interface AzureTokenResponse {
   access_token: string;
@@ -24,20 +25,20 @@ export class AzureOAuthService {
   private redirectUri: string;
   private scopes: string[];
 
-  constructor() {
+  constructor(config: AzureConfig) {
     if (
-      !process.env.AZURE_CLIENT_ID ||
-      !process.env.AZURE_CLIENT_SECRET ||
-      !process.env.AZURE_TENANT_ID ||
-      !process.env.AZURE_REDIRECT_URI
+      !config.AZURE_CLIENT_ID ||
+      !config.AZURE_CLIENT_SECRET ||
+      !config.AZURE_TENANT_ID ||
+      !config.AZURE_REDIRECT_URI
     ) {
-      throw new Error('Missing required Azure environment variables');
+      throw new Error('Missing required Azure configuration');
     }
 
-    this.clientId = process.env.AZURE_CLIENT_ID;
-    this.clientSecret = process.env.AZURE_CLIENT_SECRET;
-    this.tenantId = process.env.AZURE_TENANT_ID;
-    this.redirectUri = process.env.AZURE_REDIRECT_URI;
+    this.clientId = config.AZURE_CLIENT_ID;
+    this.clientSecret = config.AZURE_CLIENT_SECRET;
+    this.tenantId = config.AZURE_TENANT_ID;
+    this.redirectUri = config.AZURE_REDIRECT_URI;
     this.scopes = ['https://graph.microsoft.com/.default', 'offline_access'];
   }
 
