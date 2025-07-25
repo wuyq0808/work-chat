@@ -60,6 +60,7 @@ export default [
       '*.config.js',
       '.react-router/',
       '.env*',
+      'adhoc-tests/',
     ],
   },
 ];
