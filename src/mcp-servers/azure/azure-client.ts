@@ -235,45 +235,6 @@ export class AzureAPIClient {
     }
   }
 
-  async getEmailContent(options: {
-    messageId: string;
-  }): Promise<ApiResponse<AzureMessage>> {
-    try {
-      console.log('📧 Fetching email content for:', options.messageId);
-
-      const fullMessage = await this.client
-        .api(`/me/messages/${options.messageId}`)
-        .get();
-
-      const message: AzureMessage = {
-        id: fullMessage.id,
-        subject: fullMessage.subject || '',
-        body: fullMessage.body?.content || '',
-        from: fullMessage.from?.emailAddress?.address || '',
-        toRecipients:
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          fullMessage.toRecipients?.map((r: any) => r.emailAddress?.address) ||
-          [],
-        receivedDateTime: fullMessage.receivedDateTime || '',
-        importance: fullMessage.importance || 'normal',
-        isRead: fullMessage.isRead || false,
-      };
-
-      return {
-        success: true,
-        data: message,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to fetch email content',
-      };
-    }
-  }
-
   async searchEmails(options: {
     query?: string;
     limit?: number;

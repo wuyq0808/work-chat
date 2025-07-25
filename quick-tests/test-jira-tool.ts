@@ -2,20 +2,14 @@
 import 'dotenv/config';
 import { AtlassianAPIClient } from '../src/mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../src/mcp-servers/atlassian/atlassian-tools.js';
+import { requireAtlassianToken } from './get-tokens.js';
 
 async function testJiraTool() {
   console.log('🔧 Testing Jira Tool...\n');
 
   try {
-    // Extract the Atlassian token from COOKIES environment variable
-    const cookies = process.env.COOKIES || '';
-    const tokenMatch = cookies.match(/atlassian_token=([^;]+)/);
-    
-    if (!tokenMatch) {
-      throw new Error('Atlassian token not found in COOKIES environment variable');
-    }
-    
-    const accessToken = tokenMatch[1];
+    // Extract the Atlassian token from COOKIES using utility
+    const accessToken = requireAtlassianToken();
     console.log('✅ Found Atlassian token in environment');
 
     // Create Atlassian client and tools

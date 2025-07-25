@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { AzureOAuthService } from '../src/services/azureOAuthService.js';
 import { AzureAPIClient } from '../src/mcp-servers/azure/azure-client.js';
 import { AzureTools } from '../src/mcp-servers/azure/azure-tools.js';
+import { requireAzureToken } from './get-tokens.js';
 
 // Load environment variables
 dotenv.config();
@@ -11,20 +12,8 @@ dotenv.config();
 async function testCombinedAzureTool() {
   console.log('📧📅 Testing Combined Azure Emails and Calendar Tool...\n');
 
-  // Extract tokens from COOKIES
-  const cookies = process.env.COOKIES;
-  if (!cookies) {
-    console.error('❌ No COOKIES found in environment');
-    return;
-  }
-
-  const azureTokenMatch = cookies.match(/azure_token=([^;]+)/);
-  if (!azureTokenMatch) {
-    console.error('❌ No azure_token found in COOKIES');
-    return;
-  }
-
-  const accessToken = azureTokenMatch[1];
+  // Extract Azure token from COOKIES using utility
+  const accessToken = requireAzureToken();
   const refreshToken = accessToken;
 
   try {

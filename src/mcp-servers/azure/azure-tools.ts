@@ -19,12 +19,7 @@ interface GetCalendarEventsArgs {
 }
 
 interface GetEmailContentArgs {
-  messageId: string;
-}
-
-interface SearchEmailArgs {
-  query?: string;
-  limit?: number;
+  query: string;
 }
 
 interface GetLatestEmailsArgs {
@@ -92,27 +87,6 @@ export class AzureTools {
           }),
         }
       ),
-      tool(
-        async input =>
-          this.formatToolResponse(await this.handleSearchEmail(input)),
-        {
-          name: 'azure__search_email',
-          description:
-            'Search emails by keyword or get newest emails by time (returns summaries only)',
-          schema: z.object({
-            query: z
-              .string()
-              .optional()
-              .describe(
-                'Search keyword to find in email content. If not provided, returns newest emails by time'
-              ),
-            limit: z
-              .number()
-              .optional()
-              .describe('Number of emails to retrieve (default: 25)'),
-          }),
-        }
-      ),
 
       tool(
         async input =>
@@ -141,13 +115,14 @@ export class AzureTools {
         async input =>
           this.formatToolResponse(await this.handleGetEmailContent(input)),
         {
-          name: 'azure__get_email_content',
-          description: 'Get full content of a specific email by message ID',
+          name: 'azure__search_email',
+          description:
+            'Search emails by query and get full content (supports multiple keywords, searches in title, content, and sender)',
           schema: z.object({
-            messageId: z
+            query: z
               .string()
               .describe(
-                'The message ID of the email to retrieve full content for'
+                'Search query - can include multiple keywords, phrases, or search operators'
               ),
           }),
         }
@@ -189,44 +164,6 @@ export class AzureTools {
   // Get LangChain-compatible tools
   getTools(): StructuredTool[] {
     return this.tools;
-  }
-
-  private async handleSearchEmail(
-    args: SearchEmailArgs
-  ): Promise<ToolResponse> {
-    const { query, limit = 1000 } = args;
-
-    const searchResult = await this.azureClient.searchEmails({
-      query,
-      limit,
-    });
-
-    if (searchResult.success && searchResult.data) {
-      let content =
-        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,summary\n';
-      searchResult.data.forEach(msg => {
-        content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${(msg.body || '').replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
-      });
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
-      };
-    } else {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error searching emails: ${searchResult.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
   }
 
   private async handleGetCalendarEvents(
@@ -292,17 +229,39 @@ export class AzureTools {
   private async handleGetEmailContent(
     args: GetEmailContentArgs
   ): Promise<ToolResponse> {
-    const { messageId } = args;
+    const { query } = args;
 
-    const emailResult = await this.azureClient.getEmailContent({
-      messageId,
+    // Use the search functionality to find emails by query
+    const searchResult = await this.azureClient.searchEmails({
+      query,
+      limit: 10, // Limit to 10 most relevant results
     });
 
-    if (emailResult.success && emailResult.data) {
-      const msg = emailResult.data;
-      let content =
-        'id,subject,from,toRecipients,receivedDateTime,importance,isRead,body\n';
-      content += `${msg.id},"${msg.subject.replace(/"/g, '""')}",${msg.from},"${msg.toRecipients.join(';')}",${msg.receivedDateTime},${msg.importance},${msg.isRead},"${(msg.body || '').replace(/"/g, '""').replace(/\n/g, ' ')}"\n`;
+    if (searchResult.success && searchResult.data) {
+      const records = searchResult.data.map(msg => [
+        msg.id,
+        msg.subject,
+        msg.from,
+        msg.toRecipients.join(';'),
+        msg.receivedDateTime,
+        msg.importance,
+        msg.isRead,
+        msg.body || '',
+      ]);
+
+      const content = stringify(records, {
+        header: true,
+        columns: [
+          'id',
+          'subject',
+          'from',
+          'toRecipients',
+          'receivedDateTime',
+          'importance',
+          'isRead',
+          'body',
+        ],
+      });
 
       return {
         content: [
@@ -317,7 +276,7 @@ export class AzureTools {
         content: [
           {
             type: 'text',
-            text: `Error fetching email content: ${emailResult.error}`,
+            text: `Error searching emails: ${searchResult.error}`,
           },
         ],
         isError: true,

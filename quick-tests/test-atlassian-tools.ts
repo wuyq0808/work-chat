@@ -3,6 +3,7 @@
 import dotenv from 'dotenv';
 import { AtlassianAPIClient } from '../src/mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../src/mcp-servers/atlassian/atlassian-tools.js';
+import { extractAtlassianToken } from './get-tokens.js';
 
 // Load environment variables
 dotenv.config();
@@ -14,15 +15,12 @@ async function testAtlassianTools() {
   let accessToken = process.env.ATLASSIAN_ACCESS_TOKEN;
   const cloudId = process.env.ATLASSIAN_CLOUD_ID;
 
-  // If no direct access token, try to extract from COOKIES
+  // If no direct access token, try to extract from COOKIES using utility
   if (!accessToken) {
-    const cookies = process.env.COOKIES;
-    if (cookies) {
-      const tokenMatch = cookies.match(/atlassian_token=([^;]+)/);
-      if (tokenMatch) {
-        accessToken = tokenMatch[1];
-        console.log('✅ Found Atlassian token in COOKIES environment variable');
-      }
+    const tokenFromCookies = extractAtlassianToken();
+    if (tokenFromCookies) {
+      accessToken = tokenFromCookies;
+      console.log('✅ Found Atlassian token in COOKIES environment variable');
     }
   }
 

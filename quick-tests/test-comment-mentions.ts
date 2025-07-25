@@ -2,6 +2,7 @@
 
 import dotenv from 'dotenv';
 import { AtlassianAPIClient } from '../src/mcp-servers/atlassian/atlassian-client.js';
+import { extractAtlassianToken } from './get-tokens.js';
 
 dotenv.config();
 
@@ -10,11 +11,8 @@ async function testCommentMentions() {
 
   let accessToken = process.env.ATLASSIAN_ACCESS_TOKEN;
   if (!accessToken) {
-    const cookies = process.env.COOKIES;
-    if (cookies) {
-      const tokenMatch = cookies.match(/atlassian_token=([^;]+)/);
-      if (tokenMatch) accessToken = tokenMatch[1];
-    }
+    const tokenFromCookies = extractAtlassianToken();
+    if (tokenFromCookies) accessToken = tokenFromCookies;
   }
 
   try {

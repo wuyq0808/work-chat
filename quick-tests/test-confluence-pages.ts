@@ -3,6 +3,7 @@
 import dotenv from 'dotenv';
 import { AtlassianAPIClient } from '../src/mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../src/mcp-servers/atlassian/atlassian-tools.js';
+import { extractAtlassianToken } from './get-tokens.js';
 
 // Load environment variables
 dotenv.config();
@@ -10,16 +11,13 @@ dotenv.config();
 async function testConfluencePages() {
   console.log('📄 Testing Confluence Pages Tool...\n');
 
-  // Extract token from COOKIES
+  // Extract token from COOKIES using utility
   let accessToken = process.env.ATLASSIAN_ACCESS_TOKEN;
   if (!accessToken) {
-    const cookies = process.env.COOKIES;
-    if (cookies) {
-      const tokenMatch = cookies.match(/atlassian_token=([^;]+)/);
-      if (tokenMatch) {
-        accessToken = tokenMatch[1];
-        console.log('✅ Found Atlassian token in COOKIES');
-      }
+    const tokenFromCookies = extractAtlassianToken();
+    if (tokenFromCookies) {
+      accessToken = tokenFromCookies;
+      console.log('✅ Found Atlassian token in COOKIES');
     }
   }
 

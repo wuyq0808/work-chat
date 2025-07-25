@@ -24,5 +24,30 @@
 - Run `npm run lint:fix` to automatically fix formatting and address linting issues
 - eslint-disable comments needs reasons
 
+## Quick Test Scripts for API/MCP Tool Testing
+
+### Location: `quick-tests/` directory
+- Contains test scripts for API and MCP tool testing
+- Each script tests specific functionality (Azure, Atlassian, etc.)
+- Uses `get-tokens.js` utility for extracting auth tokens from COOKIES
+
+### Setup for Testing:
+1. **Copy browser cookies to .env file**:
+   - In browser dev tools → Application/Storage → Cookies
+   - Copy the entire cookie string 
+   - Add to `.env` file: `COOKIES="your_cookie_string_here"`
+   - Include tokens like: `azure_token=xxx; slack_token=yyy; atlassian_token=zzz`
+
+2. **Run any test script**:
+   ```bash
+   npm run test:script quick-tests/test-azure-email-search.ts
+   npm run test:script quick-tests/test-atlassian-tools.ts
+   npm run test:script quick-tests/test-combined-azure.ts
+   ```
+
+### Token Utility:
+- All scripts use `get-tokens.js` utility for consistent token extraction
+- Supports Azure, Slack, and Atlassian tokens from COOKIES environment variable
+
 
 
