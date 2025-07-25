@@ -78,15 +78,28 @@ const secretMaps: { [key: string]: string | null } = {};
  */
 const fetchSecrets = async (): Promise<void> => {
   try {
-    console.log('📡 Fetching secrets from mshell-node-secrets...');
-
     // Load SecretsDecryptor locally
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
+
+    // Try to suppress winston logs from mshell-node-secrets
+    try {
+      const winston = require('winston');
+      // Create a silent transport to prevent "no transports" warnings
+      const silentTransport = new winston.transports.Console({
+        silent: true,
+      });
+      winston.configure({
+        level: 'error',
+        transports: [silentTransport],
+      });
+    } catch {
+      // Winston might not be available, continue anyway
+    }
+
     const mshellModule = require('mshell-node-secrets');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SecretsDecryptor: any = mshellModule.default;
-    console.log('✅ Loaded mshell-node-secrets from local installation');
 
     const secretsDecryptor = new SecretsDecryptor(config.secrets);
 
@@ -150,8 +163,6 @@ const parseEnvString = (envString: string): Record<string, string> => {
  * Returns a complete AppConfig with all available values
  */
 export const loadAppConfigWithFallbacks = async (): Promise<AppConfig> => {
-  console.log('🔐 Loading application configuration with fallbacks...');
-
   // Step 1: Try to get configuration from mshell-node-secrets
   let secretsConfig: AppConfig = {};
 
@@ -160,18 +171,11 @@ export const loadAppConfigWithFallbacks = async (): Promise<AppConfig> => {
 
   if (hasAWSCredentials) {
     try {
-      console.log('📡 Attempting to fetch from mshell-node-secrets...');
       await fetchSecrets();
 
       const tempSecrets = secretMaps['TEMP_WORKCHAT_SECRETS'];
       if (tempSecrets) {
-        console.log('✅ Found TEMP_WORKCHAT_SECRETS, parsing...');
         secretsConfig = parseEnvString(tempSecrets) as AppConfig;
-        console.log(
-          `📊 Loaded ${Object.keys(secretsConfig).length} values from mshell-secrets`
-        );
-      } else {
-        console.log('⚠️  TEMP_WORKCHAT_SECRETS not found in mshell-secrets');
       }
     } catch (error) {
       console.warn(
@@ -223,36 +227,6 @@ export const loadAppConfigWithFallbacks = async (): Promise<AppConfig> => {
     ATLASSIAN_CLIENT_SECRET: getConfigValue('ATLASSIAN_CLIENT_SECRET'),
     ATLASSIAN_REDIRECT_URI: getConfigValue('ATLASSIAN_REDIRECT_URI'),
   };
-
-  // Step 4: Report configuration sources
-  const configSources = {
-    fromSecrets: Object.keys(secretsConfig).length,
-    fromEnv: Object.keys(process.env).length,
-    total: Object.values(finalConfig).filter(v => v).length,
-  };
-
-  console.log('📋 Configuration loaded:');
-  console.log(`  • From mshell-secrets: ${configSources.fromSecrets} values`);
-  console.log(
-    `  • From environment: ${configSources.fromEnv} env vars available`
-  );
-  console.log(`  • Total config values: ${configSources.total} values`);
-
-  // Step 5: Validate critical configuration
-  const criticalMissing = [];
-  if (!finalConfig.SLACK_CLIENT_ID) criticalMissing.push('SLACK_CLIENT_ID');
-  if (!finalConfig.AZURE_CLIENT_ID) criticalMissing.push('AZURE_CLIENT_ID');
-  if (!finalConfig.ATLASSIAN_CLIENT_ID)
-    criticalMissing.push('ATLASSIAN_CLIENT_ID');
-
-  if (criticalMissing.length > 0) {
-    console.warn(
-      `⚠️  Missing critical configuration: ${criticalMissing.join(', ')}`
-    );
-    console.warn('💡 Services may fail to initialize without these values');
-  } else {
-    console.log('✅ All critical configuration values present');
-  }
 
   return finalConfig;
 };

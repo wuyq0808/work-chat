@@ -11,7 +11,7 @@ interface AzureTokenResponse {
   scope: string;
 }
 
-interface AzureUserInfo {
+export interface AzureUserInfo {
   id: string;
   displayName: string;
   userPrincipalName: string;
@@ -95,7 +95,7 @@ export class AzureOAuthService {
     return tokenResponse;
   }
 
-  private async getUserInfo(accessToken: string): Promise<AzureUserInfo> {
+  async getUserInfo(accessToken: string): Promise<AzureUserInfo> {
     const response = await globalThis.fetch(
       'https://graph.microsoft.com/v1.0/me',
       {
@@ -201,13 +201,6 @@ export class AzureOAuthService {
   async refreshToken(refreshToken: string): Promise<AzureTokenResponse> {
     const tokenUrl = `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`;
 
-    console.log('🔄 Azure refresh token request:', {
-      tokenUrl,
-      clientId: this.clientId,
-      tenantId: this.tenantId,
-      refreshTokenLength: refreshToken?.length || 0,
-    });
-
     const body = new URLSearchParams({
       client_id: this.clientId,
       client_secret: this.clientSecret,
@@ -225,22 +218,12 @@ export class AzureOAuthService {
       body: body.toString(),
     });
 
-    console.log('🔄 Azure refresh response status:', response.status);
-
     if (!response.ok) {
       const error = await response.text();
-      console.error('❌ Azure refresh error response:', error);
       throw new Error(`Azure token refresh failed: ${error}`);
     }
 
     const tokenResponse = (await response.json()) as AzureTokenResponse;
-
-    console.log('✅ Azure refresh response:', {
-      hasAccessToken: !!tokenResponse.access_token,
-      hasRefreshToken: !!tokenResponse.refresh_token,
-      expiresIn: tokenResponse.expires_in,
-      tokenType: tokenResponse.token_type,
-    });
 
     // Validate required fields
     if (!tokenResponse.access_token || !tokenResponse.refresh_token) {

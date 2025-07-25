@@ -5,7 +5,10 @@
 import type { AtlassianTokenResponse } from '../types/atlassian.js';
 import type { Request, Response } from 'express';
 import { AtlassianOAuthService } from '../services/atlassianOAuthService.js';
-import { AzureOAuthService } from '../services/azureOAuthService.js';
+import {
+  AzureOAuthService,
+  type AzureUserInfo,
+} from '../services/azureOAuthService.js';
 
 // Import the Azure token response interface (we'll create a shared type)
 interface AzureTokenResponse {
@@ -69,7 +72,7 @@ export function setAtlassianCookies(
 
 export function setAzureCookies(
   tokenData: AzureTokenResponse,
-  userInfo: { displayName?: string; mail?: string; userPrincipalName?: string },
+  userInfo: AzureUserInfo,
   isSecureCookie: boolean
 ): string[] {
   return [
@@ -138,39 +141,29 @@ export async function refreshAzureToken(
   const accessToken = req.cookies.azure_token;
   const refreshToken = req.cookies.azure_refresh_token;
 
-  console.log('🔄 Azure token refresh check:', {
-    hasAccessToken: !!accessToken,
-    hasRefreshToken: !!refreshToken,
-    accessTokenLength: accessToken?.length || 0,
-    refreshTokenLength: refreshToken?.length || 0,
-  });
+  const hasUserInfo =
+    req.cookies.azure_user_name && req.cookies.azure_user_name !== 'null';
 
-  // If we have a refresh token but no access token (expired), try to refresh
-  // Note: We only refresh when access token is completely missing, not when it's about to expire
-  if (refreshToken && !accessToken) {
+  // Try to refresh if:
+  // 1. We have refresh token but no access token (expired and removed)
+  // 2. We have refresh token but no user info (indicates previous refresh cleared cookies)
+  if (refreshToken && (!accessToken || !hasUserInfo)) {
     try {
-      console.log('🔄 Attempting Azure token refresh...');
       const tokenResponse = await azureOAuthService.refreshToken(refreshToken);
-      console.log('✅ Azure token refresh successful');
 
-      // Set new cookies using utility function
-      const userInfo = {
-        displayName: req.cookies.azure_user_name,
-        mail: req.cookies.azure_user_email,
-        userPrincipalName: req.cookies.azure_user_email,
-      };
+      // Fetch fresh user info with the new access token
+      const userInfo = await azureOAuthService.getUserInfo(
+        tokenResponse.access_token
+      );
+
       const cookies = setAzureCookies(tokenResponse, userInfo, isSecureCookie);
-
       res.setHeader('Set-Cookie', cookies);
-      console.log('✅ Azure cookies updated');
-    } catch (error) {
-      console.error('❌ Azure token refresh failed:', (error as Error).message);
+    } catch {
       // Clear invalid refresh token cookies
       res.clearCookie('azure_refresh_token');
       res.clearCookie('azure_token');
       res.clearCookie('azure_user_name');
       res.clearCookie('azure_user_email');
-      console.log('🧹 Cleared invalid Azure cookies');
     }
   }
 }
