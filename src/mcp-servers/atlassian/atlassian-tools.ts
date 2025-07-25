@@ -5,15 +5,14 @@ import { subDays, format, parseISO } from 'date-fns';
 import { stringify } from 'csv-stringify/sync';
 
 interface SearchJiraIssuesArgs {
-  jql: string;
+  query?: string;
+  assignee?: string;
+  status?: string;
   maxResults?: number;
 }
 
 interface SearchConfluencePagesArgs {
   query?: string;
-  cql?: string;
-  space?: string;
-  type?: string;
   maxResults?: number;
 }
 
@@ -59,13 +58,22 @@ export class AtlassianTools {
         {
           name: 'atlassian__search_jira_issues',
           description:
-            'Search for Jira issues using JQL (Jira Query Language) - returns detailed content including descriptions',
+            'Search for Jira issues - returns detailed content including descriptions',
           schema: z.object({
-            jql: z
+            query: z
               .string()
+              .optional()
+              .describe('Search query for issue summary or description'),
+            assignee: z
+              .string()
+              .optional()
               .describe(
-                'JQL query to search for issues (e.g., "assignee = currentUser() AND status != Done")'
+                'Filter by assignee (use "currentUser()" for current user)'
               ),
+            status: z
+              .string()
+              .optional()
+              .describe('Filter by status (e.g., "Done", "In Progress")'),
             maxResults: z
               .number()
               .optional()
@@ -106,20 +114,6 @@ export class AtlassianTools {
               .describe(
                 'Search query for page titles or content (simple text search)'
               ),
-            cql: z
-              .string()
-              .optional()
-              .describe(
-                'Advanced CQL query (e.g., "type=page AND space=PROJ AND title ~ \\"search term\\""))'
-              ),
-            space: z
-              .string()
-              .optional()
-              .describe('Filter results to specific space key (e.g., "PROJ")'),
-            type: z
-              .enum(['page', 'blogpost', 'attachment'])
-              .optional()
-              .describe('Content type filter'),
             maxResults: z
               .number()
               .optional()
@@ -197,10 +191,29 @@ export class AtlassianTools {
   private async handleSearchJiraIssues(
     args: SearchJiraIssuesArgs
   ): Promise<ToolResponse> {
-    const { jql, maxResults = 10 } = args;
+    const { query, assignee, status, maxResults = 10 } = args;
+
+    // Build JQL query with proper syntax
+    const conditions = [];
+    if (query) {
+      conditions.push(`(summary ~ "${query}" OR description ~ "${query}")`);
+    }
+    if (assignee) {
+      conditions.push(`assignee = "${assignee}"`);
+    }
+    if (status) {
+      conditions.push(`status = "${status}"`);
+    }
+
+    let jqlQuery = conditions.join(' AND ');
+    if (jqlQuery) {
+      jqlQuery += ' ORDER BY updated DESC';
+    } else {
+      jqlQuery = 'ORDER BY updated DESC';
+    }
 
     const searchResult = await this.atlassianClient.searchJiraIssues(
-      jql,
+      jqlQuery,
       maxResults
     );
 
@@ -374,10 +387,22 @@ export class AtlassianTools {
   private async handleSearchConfluencePages(
     args: SearchConfluencePagesArgs
   ): Promise<ToolResponse> {
-    const { query, cql, space, type, maxResults = 10 } = args;
+    const { query, maxResults = 10 } = args;
+
+    // Build CQL query with ordering
+    let cqlQuery = '';
+    if (query) {
+      cqlQuery = `title ~ "${query}" OR text ~ "${query}"`;
+    }
+
+    if (cqlQuery) {
+      cqlQuery += ' ORDER BY lastModified DESC';
+    } else {
+      cqlQuery = 'ORDER BY lastModified DESC';
+    }
 
     const searchResult = await this.atlassianClient.searchConfluenceContent(
-      { query, cql, space, type },
+      { cql: cqlQuery },
       maxResults
     );
 

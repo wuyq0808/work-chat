@@ -142,7 +142,13 @@
                 let argDisplay = '';
                 if (tc.args && Object.keys(tc.args).length > 0) {
                     const argPairs = Object.entries(tc.args)
-                        .map(([key, value]) => `${key}: ${value}`)
+                        .map(([key, value]) => {
+                            // Hide long messageIds with ellipsis
+                            if (key === 'messageId' && typeof value === 'string' && value.length > 20) {
+                                return `${key}: ...`;
+                            }
+                            return `${key}: ${value}`;
+                        })
                         .join(', ');
                     argDisplay = ` (${argPairs})`;
                 }
