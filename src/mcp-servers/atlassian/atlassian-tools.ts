@@ -178,7 +178,7 @@ export class AtlassianTools {
         {
           name: 'atlassian__get_latest_activity',
           description:
-            'Get latest activity from both Jira issues and Confluence pages in parallel - provides comprehensive overview of recent activity',
+            'Calls atlassian__jira_get_latest_issues and atlassian__confluence_get_latest_pages in parallel - provides comprehensive overview of recent activity from both platforms',
           schema: z.object({
             days: z
               .number()
