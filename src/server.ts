@@ -15,7 +15,10 @@ import {
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
 import { callAIWithStream, type AIProvider } from './services/llmService.js';
-import { setAtlassianCookies } from './utils/cookie-utils.js';
+import {
+  refreshAtlassianToken,
+  refreshAzureToken,
+} from './utils/cookie-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,34 +34,6 @@ app.use(cookieParser());
 const slackOAuthService = new SlackOAuthService();
 const azureOAuthService = new AzureOAuthService();
 const atlassianOAuthService = new AtlassianOAuthService();
-
-// Helper function to handle Atlassian token refresh
-async function handleAtlassianTokenRefresh(
-  req: express.Request,
-  res: express.Response
-): Promise<void> {
-  const accessToken = req.cookies.atlassian_token;
-  const refreshToken = req.cookies.atlassian_refresh_token;
-
-  // If we have a refresh token but no access token (expired), try to refresh
-  if (refreshToken && !accessToken) {
-    try {
-      const tokenResponse =
-        await atlassianOAuthService.refreshToken(refreshToken);
-
-      // Set new cookies using utility function
-      const isProduction = process.env.NODE_ENV === 'production';
-      const cookies = setAtlassianCookies(tokenResponse, isProduction);
-
-      res.setHeader('Set-Cookie', cookies);
-    } catch {
-      // Clear invalid refresh token cookie
-      res.clearCookie('atlassian_refresh_token');
-      res.clearCookie('atlassian_token');
-      res.clearCookie('atlassian_connected');
-    }
-  }
-}
 
 // Slack OAuth routes
 app.get('/slack/install', slackOAuthService.handleInstall);
@@ -76,8 +51,15 @@ app.get('/atlassian/oauth_redirect', atlassianOAuthService.handleCallback);
 app.get(
   '/',
   asyncHandler(async (req, res) => {
-    // Check and refresh Atlassian token if needed
-    await handleAtlassianTokenRefresh(req, res);
+    // Check and refresh tokens if needed
+    const isSecureCookie = process.env.NODE_ENV === 'production';
+    await refreshAtlassianToken(
+      req,
+      res,
+      atlassianOAuthService,
+      isSecureCookie
+    );
+    await refreshAzureToken(req, res, azureOAuthService, isSecureCookie);
 
     res.sendFile(path.join(__dirname, '../public/index.html'));
   })

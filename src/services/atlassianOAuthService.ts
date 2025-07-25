@@ -73,10 +73,19 @@ export class AtlassianOAuthService {
       throw new Error(`Token exchange failed: ${error}`);
     }
 
-    return response.json() as Promise<AtlassianTokenResponse>;
+    const tokenResponse = (await response.json()) as AtlassianTokenResponse;
+
+    // Validate required fields
+    if (!tokenResponse.access_token || !tokenResponse.refresh_token) {
+      throw new Error(
+        'Atlassian token response missing required fields: access_token or refresh_token'
+      );
+    }
+
+    return tokenResponse;
   }
 
-  handleInstall = asyncHandler(async (req: Request, res: Response) => {
+  handleInstall = asyncHandler(async (_req: Request, res: Response) => {
     const authUrl = this.generateAuthorizationUrl();
     res.redirect(authUrl);
   });
@@ -117,8 +126,8 @@ export class AtlassianOAuthService {
       const tokenResponse = await this.exchangeCodeForToken(code);
 
       // Set cookies using utility function
-      const isProduction = process.env.NODE_ENV === 'production';
-      const cookies = setAtlassianCookies(tokenResponse, isProduction);
+      const isSecureCookie = process.env.NODE_ENV === 'production';
+      const cookies = setAtlassianCookies(tokenResponse, isSecureCookie);
 
       res.setHeader('Set-Cookie', cookies);
 
@@ -180,6 +189,15 @@ export class AtlassianOAuthService {
       throw new Error(`Token refresh failed: ${error}`);
     }
 
-    return response.json() as Promise<AtlassianTokenResponse>;
+    const tokenResponse = (await response.json()) as AtlassianTokenResponse;
+
+    // Validate required fields
+    if (!tokenResponse.access_token || !tokenResponse.refresh_token) {
+      throw new Error(
+        'Atlassian refresh token response missing required fields: access_token or refresh_token'
+      );
+    }
+
+    return tokenResponse;
   }
 }

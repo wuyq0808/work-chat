@@ -1,12 +1,10 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import {
-  accessTokenCookieString,
-  regularCookieString,
-} from '../utils/cookie-utils.js';
+import { setAzureCookies } from '../utils/cookie-utils.js';
 
 interface AzureTokenResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   expires_in: number;
   scope: string;
@@ -40,7 +38,7 @@ export class AzureOAuthService {
     this.clientSecret = process.env.AZURE_CLIENT_SECRET;
     this.tenantId = process.env.AZURE_TENANT_ID;
     this.redirectUri = process.env.AZURE_REDIRECT_URI;
-    this.scopes = ['https://graph.microsoft.com/.default'];
+    this.scopes = ['https://graph.microsoft.com/.default', 'offline_access'];
   }
 
   private generateAuthorizationUrl(): string {
@@ -84,7 +82,16 @@ export class AzureOAuthService {
       throw new Error(`Token exchange failed: ${error}`);
     }
 
-    return response.json() as Promise<AzureTokenResponse>;
+    const tokenResponse = (await response.json()) as AzureTokenResponse;
+
+    // Validate required fields
+    if (!tokenResponse.access_token || !tokenResponse.refresh_token) {
+      throw new Error(
+        'Azure token response missing required fields: access_token or refresh_token'
+      );
+    }
+
+    return tokenResponse;
   }
 
   private async getUserInfo(accessToken: string): Promise<AzureUserInfo> {
@@ -106,7 +113,7 @@ export class AzureOAuthService {
     return response.json() as Promise<AzureUserInfo>;
   }
 
-  handleInstall = asyncHandler(async (req: Request, res: Response) => {
+  handleInstall = asyncHandler(async (_req: Request, res: Response) => {
     const authUrl = this.generateAuthorizationUrl();
     res.redirect(authUrl);
   });
@@ -148,39 +155,10 @@ export class AzureOAuthService {
       const userInfo = await this.getUserInfo(tokenResponse.access_token);
 
       // Set secure HttpOnly cookies for Azure tokens and user info
-      const isProduction = process.env.NODE_ENV === 'production';
+      const isSecureCookie = process.env.NODE_ENV === 'production';
 
-      // Set Azure token as HttpOnly cookie
-      const cookies = [
-        accessTokenCookieString(
-          'azure_token',
-          tokenResponse.access_token,
-          tokenResponse.expires_in,
-          isProduction
-        ),
-      ];
-
-      // Store user info in regular cookies
-      if (userInfo.displayName) {
-        cookies.push(
-          regularCookieString(
-            'azure_user_name',
-            userInfo.displayName,
-            tokenResponse.expires_in,
-            isProduction
-          )
-        );
-      }
-      if (userInfo.mail || userInfo.userPrincipalName) {
-        cookies.push(
-          regularCookieString(
-            'azure_user_email',
-            userInfo.mail || userInfo.userPrincipalName,
-            tokenResponse.expires_in,
-            isProduction
-          )
-        );
-      }
+      // Set all cookies using utility function
+      const cookies = setAzureCookies(tokenResponse, userInfo, isSecureCookie);
 
       res.setHeader('Set-Cookie', cookies);
 
@@ -217,5 +195,41 @@ export class AzureOAuthService {
   async getAccessToken(code: string): Promise<string> {
     const tokenResponse = await this.exchangeCodeForToken(code);
     return tokenResponse.access_token;
+  }
+
+  async refreshToken(refreshToken: string): Promise<AzureTokenResponse> {
+    const tokenUrl = `https://login.microsoftonline.com/${this.tenantId}/oauth2/v2.0/token`;
+
+    const body = new URLSearchParams({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      scope: this.scopes.join(' '),
+    });
+
+    const response = await globalThis.fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Azure token refresh failed: ${error}`);
+    }
+
+    const tokenResponse = (await response.json()) as AzureTokenResponse;
+
+    // Validate required fields
+    if (!tokenResponse.access_token || !tokenResponse.refresh_token) {
+      throw new Error(
+        'Azure refresh token response missing required fields: access_token or refresh_token'
+      );
+    }
+
+    return tokenResponse;
   }
 }
