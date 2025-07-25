@@ -82,16 +82,17 @@ const fetchSecrets = async (): Promise<void> => {
     const { createRequire } = await import('module');
     const require = createRequire(import.meta.url);
 
-    // Try to suppress winston logs from mshell-node-secrets
+    // Try to suppress winston debug logs from mshell-node-secrets
     try {
       const winston = require('winston');
-      // Create a silent transport to prevent "no transports" warnings
-      const silentTransport = new winston.transports.Console({
-        silent: true,
+      // Create a transport that only shows errors and warnings, not debug logs
+      const errorOnlyTransport = new winston.transports.Console({
+        level: 'warn', // Only show warnings and errors
+        silent: false,
       });
       winston.configure({
-        level: 'error',
-        transports: [silentTransport],
+        level: 'warn', // Suppress debug and info logs
+        transports: [errorOnlyTransport],
       });
     } catch {
       // Winston might not be available, continue anyway
