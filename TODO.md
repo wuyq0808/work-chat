@@ -22,9 +22,9 @@
   - Pull request operations
   - Commit history and file operations
 
-## Slack Context Enhancement
+## Slack Tool Enhancement
 
-- [ ] Improve Slack latest messages context
+- [ ] Improve Slack latest messages 
   - Current issue: Only shows messages to/from user (mentions)
   - Enhancement: Query recent channel history to construct complete conversation context
   - Show thread context and related messages for better understanding
@@ -58,3 +58,10 @@
   - Package Express server as sidecar process or embedded server
   - Handle OAuth flows with proper redirect URI handling for desktop environment
   - Create macOS installer (.dmg)
+
+## Dependency Decoupling
+
+- [ ] Decouple mshell secret dependency - make it optional
+  - Current issue: App requires mshell-node-secrets package
+  - Enhancement: Make secret management optional or use alternative approach
+  - Allow app to run without external secret management dependencies
