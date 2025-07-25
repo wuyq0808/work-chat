@@ -18,7 +18,9 @@
     "test:confluence": "tsx adhoc-tests/test-confluence-pages.ts",
     "test:comments": "tsx adhoc-tests/test-comment-mentions.ts",
     "test:azure": "tsx adhoc-tests/test-azure-calendar.ts",
-    "test:azure-combined": "tsx adhoc-tests/test-combined-azure.ts"
+    "test:azure-combined": "tsx adhoc-tests/test-combined-azure.ts",
+    "test:azure-email-search": "tsx adhoc-tests/test-azure-email-search-dry-run.ts",
+    "test:azure-email-search-live": "tsx adhoc-tests/test-azure-email-search.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.848.0",
