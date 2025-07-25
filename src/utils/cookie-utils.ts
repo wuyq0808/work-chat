@@ -7,10 +7,13 @@ import type { Request, Response } from 'express';
 import { AtlassianOAuthService } from '../services/atlassianOAuthService.js';
 import { AzureOAuthService } from '../services/azureOAuthService.js';
 
+// Import the Azure token response interface (we'll create a shared type)
 interface AzureTokenResponse {
   access_token: string;
   refresh_token: string;
+  token_type: string;
   expires_in: number;
+  scope: string;
 }
 
 export function accessTokenCookieString(
@@ -135,10 +138,20 @@ export async function refreshAzureToken(
   const accessToken = req.cookies.azure_token;
   const refreshToken = req.cookies.azure_refresh_token;
 
+  console.log('🔄 Azure token refresh check:', {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    accessTokenLength: accessToken?.length || 0,
+    refreshTokenLength: refreshToken?.length || 0,
+  });
+
   // If we have a refresh token but no access token (expired), try to refresh
+  // Note: We only refresh when access token is completely missing, not when it's about to expire
   if (refreshToken && !accessToken) {
     try {
+      console.log('🔄 Attempting Azure token refresh...');
       const tokenResponse = await azureOAuthService.refreshToken(refreshToken);
+      console.log('✅ Azure token refresh successful');
 
       // Set new cookies using utility function
       const userInfo = {
@@ -149,12 +162,15 @@ export async function refreshAzureToken(
       const cookies = setAzureCookies(tokenResponse, userInfo, isSecureCookie);
 
       res.setHeader('Set-Cookie', cookies);
-    } catch {
+      console.log('✅ Azure cookies updated');
+    } catch (error) {
+      console.error('❌ Azure token refresh failed:', (error as Error).message);
       // Clear invalid refresh token cookies
       res.clearCookie('azure_refresh_token');
       res.clearCookie('azure_token');
       res.clearCookie('azure_user_name');
       res.clearCookie('azure_user_email');
+      console.log('🧹 Cleared invalid Azure cookies');
     }
   }
 }

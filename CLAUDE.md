@@ -22,8 +22,7 @@
 
 ## Linting Guidelines
 - Run `npm run lint:fix` to automatically fix formatting and address linting issues
-- All remaining `any` types have been documented with eslint-disable comments and reasons
-- Non-null assertions are documented where they are safe to use
+- eslint-disable comments needs reasons
 
 
 
