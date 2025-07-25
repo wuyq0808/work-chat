@@ -14,7 +14,10 @@
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
-    "test:recent": "tsx test-recent-tools.ts"
+    "test:atlassian": "tsx adhoc-tests/test-atlassian-tools.ts",
+    "test:confluence": "tsx adhoc-tests/test-confluence-pages.ts",
+    "test:comments": "tsx adhoc-tests/test-comment-mentions.ts",
+    "test:azure": "tsx adhoc-tests/test-azure-calendar.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.848.0",

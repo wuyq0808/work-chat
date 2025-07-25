@@ -57,6 +57,17 @@ export interface ConfluencePage {
     webui: string;
   };
   excerpt?: string;
+  content?: string;
+}
+
+export interface ConfluencePageContent {
+  id: string;
+  title: string;
+  body?: {
+    storage?: {
+      value: string;
+    };
+  };
 }
 
 export interface ConfluenceSpace {
@@ -84,8 +95,22 @@ export interface ConfluenceSearchOptions {
 }
 
 export interface ConfluenceSearchResult {
-  results: ConfluencePage[];
+  results: ConfluenceSearchResultItem[];
   size: number;
+  _links?: {
+    base: string;
+    context: string;
+    self: string;
+  };
+}
+
+export interface ConfluenceSearchResultItem {
+  content?: ConfluencePage;
+  title: string;
+  excerpt?: string;
+  url?: string;
+  lastModified?: string;
+  entityType?: string;
 }
 
 export interface AtlassianResource {
@@ -357,6 +382,57 @@ export class AtlassianAPIClient {
       return {
         success: false,
         error: `Error searching Confluence spaces: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  // Get detailed content for a Confluence page
+  async getConfluencePageContent(
+    pageId: string
+  ): Promise<AtlassianApiResponse<ConfluencePageContent>> {
+    try {
+      // Ensure we have a cloud ID
+      if (!this.cloudId) {
+        const resourcesResult = await this.getAccessibleResources();
+        if (
+          !resourcesResult.success ||
+          !resourcesResult.data ||
+          resourcesResult.data.length === 0
+        ) {
+          return {
+            success: false,
+            error: 'No accessible Atlassian resources found',
+          };
+        }
+      }
+
+      const response = await globalThis.fetch(
+        `https://api.atlassian.com/ex/confluence/${this.cloudId}/rest/api/content/${pageId}?expand=body.storage`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `Failed to get Confluence page content: ${response.status} ${errorText}`,
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Error getting Confluence page content: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

@@ -18,4 +18,4 @@ claude mcp add slack -e SLACK_USER_TOKEN=xoxp-your-token-here -- /path/to/work-c
 - `slack__conversations_history` - Get channel messages
 - `slack__conversations_replies` - Get thread replies  
 - `slack__search_messages` - Search workspace messages
-- `slack__get_user_latest_messages` - Get your recent messages
+- `slack__get_latest_messages` - Get your recent messages

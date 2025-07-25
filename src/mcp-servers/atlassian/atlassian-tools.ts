@@ -26,6 +26,12 @@ interface GetUserLatestIssuesArgs {
   days?: number;
 }
 
+interface GetLatestConfluencePagesArgs {
+  days?: number;
+  maxResults?: number;
+  includeUserMentions?: boolean;
+}
+
 export interface ToolResponse {
   content: Array<{
     type: 'text';
@@ -72,9 +78,9 @@ export class AtlassianTools {
         async input =>
           this.formatToolResponse(await this.handleGetUserLatestIssues(input)),
         {
-          name: 'atlassian__get_user_latest_issues',
+          name: 'atlassian__jira_get_latest_issues',
           description:
-            "Get user's latest Jira issues from the last N days (returns metadata only, no content)",
+            "Get user's latest Jira issues from the last N days - includes issues where user is mentioned (returns metadata only, no content)",
           schema: z.object({
             days: z
               .number()
@@ -136,6 +142,34 @@ export class AtlassianTools {
               .number()
               .optional()
               .describe('Maximum number of results to return (default: 10)'),
+          }),
+        }
+      ),
+
+      tool(
+        async input =>
+          this.formatToolResponse(
+            await this.handleGetLatestConfluencePages(input)
+          ),
+        {
+          name: 'atlassian__confluence_get_latest_pages',
+          description:
+            'Get latest Confluence pages and comments with excerpts - includes content where user is mentioned',
+          schema: z.object({
+            days: z
+              .number()
+              .optional()
+              .describe('Number of days to look back (default: 14)'),
+            maxResults: z
+              .number()
+              .optional()
+              .describe('Maximum number of results to return (default: 10)'),
+            includeUserMentions: z
+              .boolean()
+              .optional()
+              .describe(
+                'Include pages where current user is mentioned (default: true)'
+              ),
           }),
         }
       ),
@@ -253,7 +287,8 @@ export class AtlassianTools {
       const startDateStr = format(startDate, 'yyyy-MM-dd');
 
       // Create JQL query for issues updated in the last N days for current user
-      const jql = `(assignee = currentUser() OR reporter = currentUser()) AND updated >= "${startDateStr}" ORDER BY updated DESC`;
+      // Include issues where user is mentioned in comments or description
+      const jql = `(assignee = currentUser() OR reporter = currentUser() OR comment ~ currentUser() OR description ~ currentUser()) AND updated >= "${startDateStr}" ORDER BY updated DESC`;
 
       const searchResult = await this.atlassianClient.searchJiraIssues(
         jql,
@@ -347,9 +382,10 @@ export class AtlassianTools {
     );
 
     if (searchResult.success && searchResult.data) {
-      const pages = searchResult.data.results;
+      const searchItems = searchResult.data.results;
+      const baseUrl = searchResult.data._links?.base;
 
-      if (pages.length === 0) {
+      if (searchItems.length === 0) {
         return {
           content: [
             {
@@ -360,23 +396,44 @@ export class AtlassianTools {
         };
       }
 
-      let content = 'id,title,type,space,url,lastModified,excerpt\n';
+      const records = searchItems.map(item => {
+        const page = item.content;
+        const spaceKey = page?.space?.key || '';
+        const spaceName = page?.space?.name || '';
+        const url = item.url && baseUrl ? `${baseUrl}${item.url}` : '';
+        const lastModified = item.lastModified
+          ? new Date(item.lastModified).toISOString().split('T')[0]
+          : '';
+        const excerpt = item.excerpt || '';
 
-      for (const page of pages) {
-        const spaceKey = page.space?.key || 'Unknown';
-        const spaceName = page.space?.name || 'Unknown';
-        const url = page._links?.webui
-          ? `https://your-domain.atlassian.net${page._links.webui}`
-          : 'No URL';
-        const lastModified = page.version?.when
-          ? new Date(page.version.when).toISOString().split('T')[0]
-          : 'Unknown';
-        const excerpt = page.excerpt
-          ? page.excerpt.replace(/"/g, '""').substring(0, 100) + '...'
-          : 'No excerpt';
+        const spaceDisplay =
+          spaceKey && spaceName
+            ? `${spaceKey} (${spaceName})`
+            : spaceKey || spaceName || '';
 
-        content += `${page.id},"${page.title}","${page.type}","${spaceKey} (${spaceName})","${url}",${lastModified},"${excerpt}"\n`;
-      }
+        return [
+          page?.id || '',
+          item.title,
+          page?.type || '',
+          spaceDisplay,
+          url,
+          lastModified,
+          excerpt,
+        ];
+      });
+
+      const content = stringify(records, {
+        header: true,
+        columns: [
+          'id',
+          'title',
+          'type',
+          'space',
+          'url',
+          'last_modified',
+          'excerpt',
+        ],
+      });
 
       return {
         content: [
@@ -448,6 +505,116 @@ export class AtlassianTools {
           {
             type: 'text',
             text: `Error searching Confluence spaces: ${searchResult.error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleGetLatestConfluencePages(
+    args: GetLatestConfluencePagesArgs
+  ): Promise<ToolResponse> {
+    const { days = 14, maxResults = 10, includeUserMentions = true } = args;
+
+    try {
+      // Calculate date range (last N days)
+      const startDate = subDays(new Date(), days);
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+      // Build CQL query for pages and comments updated in the last N days
+      let cqlQuery = `(type = page OR type = comment) AND lastModified >= "${startDateStr}"`;
+
+      // Add user mention search if enabled
+      if (includeUserMentions) {
+        cqlQuery += ` AND (mention = currentUser() OR creator = currentUser())`;
+      }
+
+      cqlQuery += ' ORDER BY lastModified DESC';
+
+      const searchResult = await this.atlassianClient.searchConfluenceContent(
+        { cql: cqlQuery },
+        maxResults
+      );
+
+      if (searchResult.success && searchResult.data) {
+        const searchItems = searchResult.data.results;
+        const baseUrl = searchResult.data._links?.base;
+
+        if (searchItems.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'No Confluence pages found matching the criteria.',
+              },
+            ],
+          };
+        }
+
+        const records = searchItems.map(item => {
+          const page = item.content;
+          const spaceKey = page?.space?.key || '';
+          const spaceName = page?.space?.name || '';
+          const url = item.url && baseUrl ? `${baseUrl}${item.url}` : '';
+          const lastModified = item.lastModified
+            ? format(parseISO(item.lastModified), 'yyyy-MM-dd')
+            : '';
+
+          // Use excerpt as content preview
+          const excerpt = item.excerpt || '';
+
+          return [
+            page?.id || '',
+            item.title,
+            page?.type || '',
+            spaceKey && spaceName
+              ? `${spaceKey} (${spaceName})`
+              : spaceKey || spaceName || '',
+            url,
+            lastModified,
+            excerpt,
+          ];
+        });
+
+        const content = stringify(records, {
+          header: true,
+          columns: [
+            'id',
+            'title',
+            'type',
+            'space',
+            'url',
+            'last_modified',
+            'excerpt',
+          ],
+        });
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: content,
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error searching latest Confluence pages: ${searchResult.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error getting latest Confluence pages: ${error instanceof Error ? error.message : 'Unknown error'}`,
           },
         ],
         isError: true,

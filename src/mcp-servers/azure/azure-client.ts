@@ -182,16 +182,22 @@ export class AzureAPIClient {
     endTime?: string;
   }): Promise<ApiResponse<AzureCalendarEvent[]>> {
     try {
-      let query = this.client.api('/me/events');
+      let query = this.client
+        .api('/me/calendarView')
+        .select(
+          'id,subject,start,end,location,recurrence,seriesMasterId,organizer,attendees,importance,body'
+        );
 
       if (options.limit) {
         query = query.top(options.limit);
       }
 
+      // CalendarView requires startDateTime and endDateTime as query parameters
       if (options.startTime && options.endTime) {
-        query = query.filter(
-          `start/dateTime ge '${options.startTime}' and end/dateTime le '${options.endTime}'`
-        );
+        query = query.query({
+          startDateTime: options.startTime,
+          endDateTime: options.endTime,
+        });
       }
 
       const response = await query.get();

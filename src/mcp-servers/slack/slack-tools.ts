@@ -120,7 +120,7 @@ export class SlackTools {
             await this.handleGetUserLatestMessages(input)
           ),
         {
-          name: 'slack__get_user_latest_messages',
+          name: 'slack__get_latest_messages',
           description:
             'Get latest messages involving the current user (messages with/to/from the user) in the last N days',
           schema: z.object({
