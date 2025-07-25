@@ -6,21 +6,25 @@ import {
   ConverseCommand,
   ConversationRole,
 } from '@aws-sdk/client-bedrock-runtime';
+import { AWSConfig } from '../utils/secrets-manager.js';
 
 // Create a wrapper that implements retry logic for Claude Bedrock using modern LangChain AWS integration
 export class RetryableClaudeBedrockChat {
   private bedrock: ChatBedrockConverse;
   private version: '35' | '37';
+  private awsConfig: AWSConfig;
 
-  constructor(version: '35' | '37') {
+  constructor(version: '35' | '37', awsConfig: AWSConfig) {
     this.version = version;
+    this.awsConfig = awsConfig;
+
     // Check if AWS credentials are provided
     const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
     const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
     const modelId =
       this.version === '35'
-        ? process.env.AWS_BEDROCK_CLAUDE_35_MODEL_ID
-        : process.env.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
+        ? awsConfig.AWS_BEDROCK_CLAUDE_35_MODEL_ID
+        : awsConfig.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
@@ -30,13 +34,13 @@ export class RetryableClaudeBedrockChat {
 
     if (!modelId) {
       throw new Error(
-        `AWS_BEDROCK_CLAUDE_${this.version}_MODEL_ID environment variable is required.`
+        `AWS_BEDROCK_CLAUDE_${this.version}_MODEL_ID not found in configuration.`
       );
     }
 
     this.bedrock = new ChatBedrockConverse({
       model: modelId,
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: awsConfig.AWS_REGION || 'us-east-1',
       credentials: {
         accessKeyId,
         secretAccessKey,
@@ -62,7 +66,10 @@ export class RetryableClaudeBedrockChat {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain tool types are complex
   bindTools(tools: any[]): RetryableClaudeBedrockChat {
     const boundBedrock = this.bedrock.bindTools(tools);
-    const wrapper = new RetryableClaudeBedrockChat(this.version);
+    const wrapper = new RetryableClaudeBedrockChat(
+      this.version,
+      this.awsConfig
+    );
     wrapper.bedrock = boundBedrock as ChatBedrockConverse;
     return wrapper;
   }
@@ -70,21 +77,22 @@ export class RetryableClaudeBedrockChat {
 
 export async function callClaudeBedrock(
   request: AIRequest,
-  version: '35' | '37'
+  version: '35' | '37',
+  awsConfig: AWSConfig
 ): Promise<string> {
-  const modelEnvVar =
+  const modelId =
     version === '35'
-      ? process.env.AWS_BEDROCK_CLAUDE_35_MODEL_ID
-      : process.env.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
+      ? awsConfig.AWS_BEDROCK_CLAUDE_35_MODEL_ID
+      : awsConfig.AWS_BEDROCK_CLAUDE_37_MODEL_ID;
 
-  if (!modelEnvVar) {
+  if (!modelId) {
     throw new Error(
-      `AWS_BEDROCK_CLAUDE_${version}_MODEL_ID environment variable is required`
+      `AWS_BEDROCK_CLAUDE_${version}_MODEL_ID not found in configuration`
     );
   }
 
   const bedrockClient = new BedrockRuntimeClient({
-    region: process.env.AWS_REGION || 'us-east-1',
+    region: awsConfig.AWS_REGION || 'us-east-1',
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
@@ -93,7 +101,7 @@ export async function callClaudeBedrock(
   });
 
   const conversation = {
-    modelId: modelEnvVar,
+    modelId,
     messages: [
       {
         role: ConversationRole.USER,

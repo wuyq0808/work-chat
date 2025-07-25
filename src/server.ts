@@ -8,6 +8,7 @@ import {
   getSlackConfig,
   getAzureConfig,
   getAtlassianConfig,
+  getAWSConfig,
 } from './utils/secrets-manager.js';
 import { SlackOAuthService } from './services/slackOAuthService.js';
 import { AzureOAuthService } from './services/azureOAuthService.js';
@@ -20,7 +21,7 @@ import {
   getSlackUserIdFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
-import { callAIWithStream, type AIProvider } from './services/llmService.js';
+import { callAIWithStream } from './services/llmService.js';
 import {
   refreshAtlassianToken,
   refreshAzureToken,
@@ -111,18 +112,21 @@ async function startServer() {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
-      const output = await callAIWithStream({
-        input,
-        slackToken,
-        azureToken,
-        atlassianToken,
-        azureName,
-        slackUserId,
-        provider: provider as AIProvider,
-        conversationId,
-        timezone,
-        onProgress,
-      });
+      const output = await callAIWithStream(
+        {
+          input,
+          slackToken,
+          azureToken,
+          atlassianToken,
+          azureName,
+          slackUserId,
+          provider,
+          conversationId,
+          timezone,
+          onProgress,
+        },
+        getAWSConfig(appConfig)
+      );
 
       // Send final response
       res.write(

@@ -1,7 +1,17 @@
 import { RetryableClaudeBedrockChat } from '../llm-clients/claude-bedrock.js';
 import { LangChainChatHandler } from '../llm/LangChainChat.js';
+import { AWSConfig } from '../utils/secrets-manager.js';
 
-export type AIProvider = 'claude-bedrock-37' | 'claude-bedrock-35';
+const AI_PROVIDERS = {
+  CLAUDE_BEDROCK_37: 'claude-bedrock-37',
+  CLAUDE_BEDROCK_35: 'claude-bedrock-35',
+} as const;
+
+export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS];
+
+function validateAIProvider(value: string): value is AIProvider {
+  return Object.values(AI_PROVIDERS).includes(value as AIProvider);
+}
 
 export interface AIRequest {
   input: string;
@@ -10,7 +20,7 @@ export interface AIRequest {
   atlassianToken?: string;
   azureName?: string;
   slackUserId?: string;
-  provider?: AIProvider;
+  provider?: string;
   conversationId?: string;
   timezone?: string;
 }
@@ -22,13 +32,14 @@ export interface StreamingAIRequest extends AIRequest {
 
 async function handleClaudeBedrockChat(
   request: StreamingAIRequest,
-  version: '35' | '37'
+  version: '35' | '37',
+  awsConfig: AWSConfig
 ): Promise<string> {
   if (!request.conversationId) {
     throw new Error('conversationId is required for Claude Bedrock');
   }
 
-  const claudeBedrockModel = new RetryableClaudeBedrockChat(version);
+  const claudeBedrockModel = new RetryableClaudeBedrockChat(version, awsConfig);
   const claudeBedrockHandler = new LangChainChatHandler(claudeBedrockModel);
   return claudeBedrockHandler.handleChat({
     input: request.input,
@@ -44,9 +55,17 @@ async function handleClaudeBedrockChat(
 }
 
 export async function callAIWithStream(
-  request: StreamingAIRequest
+  request: StreamingAIRequest,
+  awsConfig: AWSConfig
 ): Promise<string> {
-  const provider = request.provider || 'claude-bedrock-37';
+  const provider = request.provider || AI_PROVIDERS.CLAUDE_BEDROCK_37;
+
+  // Validate provider
+  if (!validateAIProvider(provider)) {
+    throw new Error(
+      `Invalid AI provider: ${provider}. Must be one of: ${Object.values(AI_PROVIDERS).join(', ')}`
+    );
+  }
 
   // Validate that at least one token is provided
   if (!request.slackToken && !request.azureToken && !request.atlassianToken) {
@@ -57,9 +76,9 @@ export async function callAIWithStream(
 
   switch (provider) {
     case 'claude-bedrock-37':
-      return handleClaudeBedrockChat(request, '37');
+      return handleClaudeBedrockChat(request, '37', awsConfig);
     case 'claude-bedrock-35':
-      return handleClaudeBedrockChat(request, '35');
+      return handleClaudeBedrockChat(request, '35', awsConfig);
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
