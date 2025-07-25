@@ -1,5 +1,8 @@
 # Claude Development Notes
 
+## Development Guidelines
+- Do not modify .env file without my explicit consent
+
 ## Testing Guidelines
 
 ### DO NOT start the server automatically after making changes
