@@ -16,11 +16,6 @@ interface SearchConfluencePagesArgs {
   maxResults?: number;
 }
 
-interface SearchConfluenceSpacesArgs {
-  query: string;
-  maxResults?: number;
-}
-
 interface GetUserLatestIssuesArgs {
   days?: number;
 }
@@ -118,24 +113,6 @@ export class AtlassianTools {
               .describe(
                 'Search query for page titles or content (simple text search)'
               ),
-            maxResults: z
-              .number()
-              .optional()
-              .describe('Maximum number of results to return (default: 10)'),
-          }),
-        }
-      ),
-
-      tool(
-        async input =>
-          this.formatToolResponse(
-            await this.handleSearchConfluenceSpaces(input)
-          ),
-        {
-          name: 'atlassian__search_confluence_spaces',
-          description: 'Search for Confluence spaces',
-          schema: z.object({
-            query: z.string().describe('Search query for space names or keys'),
             maxResults: z
               .number()
               .optional()
@@ -494,62 +471,6 @@ export class AtlassianTools {
           {
             type: 'text',
             text: `Error searching Confluence pages: ${searchResult.error}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  private async handleSearchConfluenceSpaces(
-    args: SearchConfluenceSpacesArgs
-  ): Promise<ToolResponse> {
-    const { query, maxResults = 10 } = args;
-
-    const searchResult = await this.atlassianClient.searchConfluenceSpaces(
-      query,
-      maxResults
-    );
-
-    if (searchResult.success && searchResult.data) {
-      const spaces = searchResult.data.results;
-
-      if (spaces.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'No Confluence spaces found matching the search criteria.',
-            },
-          ],
-        };
-      }
-
-      let content = 'key,name,type,status,description\n';
-
-      for (const space of spaces) {
-        const description = space.description?.plain?.value || 'No description';
-        const cleanDescription = description
-          .replace(/"/g, '""')
-          .substring(0, 100);
-
-        content += `"${space.key}","${space.name}","${space.type}","${space.status}","${cleanDescription}"\n`;
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: content,
-          },
-        ],
-      };
-    } else {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error searching Confluence spaces: ${searchResult.error}`,
           },
         ],
         isError: true,
