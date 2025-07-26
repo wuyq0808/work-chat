@@ -78,7 +78,7 @@ export class AzureTools {
         {
           name: 'azure__get_upcoming_calendar',
           description:
-            'Get upcoming calendar events for the next N days (includes detailed content)',
+            "Get current user's own upcoming calendar events for the next N days (includes detailed content)",
           schema: z.object({
             days: z
               .number()
@@ -373,10 +373,14 @@ export class AzureTools {
       const startDateStr = startDate.toISOString();
       const endDateStr = endDate.toISOString();
 
-      const eventsResult = await this.azureClient.getCalendarEvents({
-        startTime: startDateStr,
-        endTime: endDateStr,
-      });
+      // Get user profile and calendar events in parallel
+      const [profileResult, eventsResult] = await Promise.all([
+        this.azureClient.getProfile(),
+        this.azureClient.getCalendarEvents({
+          startTime: startDateStr,
+          endTime: endDateStr,
+        }),
+      ]);
 
       if (eventsResult.success && eventsResult.data) {
         const records = eventsResult.data.map(event => [
@@ -406,11 +410,18 @@ export class AzureTools {
           ],
         });
 
+        // Add user info header if profile was successfully retrieved
+        let responseText = content;
+        if (profileResult.success && profileResult.data) {
+          const userInfo = `Calendar for: ${profileResult.data.displayName} (${profileResult.data.mail || profileResult.data.userPrincipalName})\n\n`;
+          responseText = userInfo + content;
+        }
+
         return {
           content: [
             {
               type: 'text',
-              text: content,
+              text: responseText,
             },
           ],
         };

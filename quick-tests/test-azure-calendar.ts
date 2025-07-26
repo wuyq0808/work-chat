@@ -18,11 +18,8 @@ async function testAzureCalendar() {
 
   try {
     // Initialize Azure services
-    const azureOAuth = new AzureOAuthService();
     const azureClient = new AzureAPIClient({ 
-      accessToken, 
-      refreshToken,
-      azureOAuthService: azureOAuth 
+      accessToken
     });
     
     const azureTools = new AzureTools(azureClient);
@@ -68,13 +65,18 @@ async function testAzureCalendar() {
       try {
         const result = await calendarTool.invoke(config.params);
         
-        // Parse CSV to find the meeting
+        // Show first few lines to see the user header
         const lines = result.split('\n').filter(line => line.trim());
-        const dataRows = lines.slice(1);
+        console.log(`✅ First 3 lines of response:`);
+        lines.slice(0, 3).forEach((line, i) => {
+          console.log(`   ${i + 1}: ${line}`);
+        });
         
-        console.log(`✅ Found ${dataRows.length} events`);
+        // Parse CSV to find the meeting (skip user header if present)
+        const headerLineIndex = lines.findIndex(line => line.startsWith('id,subject'));
+        const dataRows = headerLineIndex >= 0 ? lines.slice(headerLineIndex + 1) : lines.slice(1);
         
-        console.log(`   Events found for ${config.name}`);
+        console.log(`✅ Found ${dataRows.length} events for ${config.name}`);
         
       } catch (error) {
         console.error(`❌ Failed:`, error instanceof Error ? error.message : error);
