@@ -3,6 +3,8 @@
  * Used by adhoc test scripts to get tokens for API testing
  */
 
+import 'dotenv/config';
+
 export interface ExtractedTokens {
   azureToken?: string;
   slackToken?: string;

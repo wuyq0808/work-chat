@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { SlackAPIClient, type SlackMessage } from './slack-client.js';
 import { subDays, format } from 'date-fns';
 import { stringify } from 'csv-stringify/sync';
+import { WebClient } from '@slack/web-api';
 
 interface ConversationsHistoryArgs {
   channel_id: string;
@@ -38,10 +39,13 @@ export interface ToolResponse {
 export class SlackTools {
   private slackClient: SlackAPIClient;
   private tools: StructuredTool[];
+  private webClient: WebClient;
 
   constructor(slackClient: SlackAPIClient) {
     this.slackClient = slackClient;
     this.tools = this.createTools();
+    // Access the WebClient for unread functionality
+    this.webClient = (slackClient as any).client;
   }
 
   // Create DynamicStructuredTool instances
@@ -149,8 +153,51 @@ export class SlackTools {
     return this.tools;
   }
 
+  // Helper function to determine if a message is unread
+  private isMessageUnread(messageTs: string, lastRead?: string): boolean {
+    if (!lastRead) {
+      // If no last_read timestamp, assume all messages are unread
+      return true;
+    }
+
+    const messageTime = parseFloat(messageTs);
+    const lastReadTime = parseFloat(lastRead);
+
+    // If either timestamp is invalid (NaN), assume unread for safety
+    if (isNaN(messageTime) || isNaN(lastReadTime)) {
+      return true;
+    }
+
+    // Compare timestamps - message is unread if ts > last_read
+    return messageTime > lastReadTime;
+  }
+
+  // Helper to get conversation info for unread status
+  private async getConversationInfo(channelId: string): Promise<{
+    last_read?: string;
+  }> {
+    try {
+      const result = await this.webClient.conversations.info({
+        channel: channelId,
+      });
+
+      if (!result.ok || !result.channel) {
+        throw new Error('Failed to fetch conversation info');
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const channel = result.channel as any;
+
+      return {
+        last_read: channel.last_read,
+      };
+    } catch (error) {
+      throw error instanceof Error ? error : new Error('Unknown error');
+    }
+  }
+
   // Private method to group messages by channel and format with headers
-  private formatMessagesGroupedByChannel(messages: SlackMessage[]): string {
+  private async formatMessagesGroupedByChannel(messages: SlackMessage[]): Promise<string> {
     // Group messages by channel
     const channelGroups = new Map<string, any[]>();
 
@@ -171,12 +218,30 @@ export class SlackTools {
       });
     });
 
+    // Get last_read timestamps for all channels
+    const channelLastRead = new Map<string, string>();
+    await Promise.all(
+      Array.from(channelGroups.keys()).map(async channelId => {
+        if (channelId !== 'unknown') {
+          try {
+            const infoResult = await this.getConversationInfo(channelId);
+            if (infoResult.last_read) {
+              channelLastRead.set(channelId, infoResult.last_read);
+            }
+          } catch {
+            // Ignore errors for individual channels
+          }
+        }
+      })
+    );
+
     let content = '';
 
     // Generate content for each channel
     channelGroups.forEach((channelMessages, channelId) => {
       const firstMsg = channelMessages[0];
       const channelName = firstMsg.channel?.name || 'unknown';
+      const lastRead = channelLastRead.get(channelId);
 
       // Add channel start header
       content += `Channel start -- #${channelName} ${channelId}\n`;
@@ -186,7 +251,7 @@ export class SlackTools {
         msg.username || '',
         msg.text || '',
         msg.ts || '',
-        msg.isUnread ? 'true' : 'false',
+        this.isMessageUnread(msg.ts || '', lastRead) ? 'true' : 'false',
       ]);
 
       const channelCsv = stringify([
@@ -452,7 +517,7 @@ export class SlackTools {
           return timeB - timeA; // Descending order (newest first)
         });
 
-        const content = this.formatMessagesGroupedByChannel(allMessages);
+        const content = await this.formatMessagesGroupedByChannel(allMessages);
 
         return {
           content: [
