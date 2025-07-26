@@ -1,5 +1,5 @@
 import { RetryableClaudeBedrockChat } from '../llm-clients/claude-bedrock.js';
-import { LangChainChatHandler } from '../llm/LangChainChat.js';
+import { chat } from '../llm/chat.js';
 import { AWSConfig } from '../utils/secrets-manager.js';
 
 const AI_PROVIDERS = {
@@ -9,11 +9,12 @@ const AI_PROVIDERS = {
 
 export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS];
 
-function validateAIProvider(value: string): value is AIProvider {
+function validateAIProvider(value: string | undefined): value is AIProvider {
+  if (!value) return false;
   return Object.values(AI_PROVIDERS).includes(value as AIProvider);
 }
 
-export interface AIRequest {
+export interface ChatRequest {
   input: string;
   slackToken?: string;
   azureToken?: string;
@@ -23,15 +24,12 @@ export interface AIRequest {
   provider?: string;
   conversationId?: string;
   timezone?: string;
-}
-
-export interface StreamingAIRequest extends AIRequest {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
   onProgress?: (event: { type: string; data: any }) => void;
 }
 
 async function handleClaudeBedrockChat(
-  request: StreamingAIRequest,
+  request: ChatRequest,
   version: '35' | '37',
   awsConfig: AWSConfig
 ): Promise<string> {
@@ -40,25 +38,14 @@ async function handleClaudeBedrockChat(
   }
 
   const claudeBedrockModel = new RetryableClaudeBedrockChat(version, awsConfig);
-  const claudeBedrockHandler = new LangChainChatHandler(claudeBedrockModel);
-  return claudeBedrockHandler.handleChat({
-    input: request.input,
-    slackToken: request.slackToken,
-    azureToken: request.azureToken,
-    atlassianToken: request.atlassianToken,
-    azureName: request.azureName,
-    slackUserId: request.slackUserId,
-    conversationId: request.conversationId,
-    timezone: request.timezone,
-    onProgress: request.onProgress,
-  });
+  return chat(request, claudeBedrockModel);
 }
 
-export async function callAIWithStream(
-  request: StreamingAIRequest,
+export async function handleChatRequest(
+  request: ChatRequest,
   awsConfig: AWSConfig
 ): Promise<string> {
-  const provider = request.provider || AI_PROVIDERS.CLAUDE_BEDROCK_37;
+  const provider = request.provider;
 
   // Validate provider
   if (!validateAIProvider(provider)) {

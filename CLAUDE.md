@@ -2,6 +2,7 @@
 
 ## Development Guidelines
 - Do not modify .env file without my explicit consent
+- Do not commit changes automatically - always ask user before committing
 
 ## Testing Guidelines
 

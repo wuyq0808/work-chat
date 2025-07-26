@@ -21,7 +21,7 @@ import {
   getSlackUserIdFromCookie,
 } from './utils/auth.js';
 import { errorHandler, asyncHandler } from './middleware/errorHandler.js';
-import { callAIWithStream } from './services/llmService.js';
+import { handleChatRequest } from './llm/llm-router.js';
 import {
   refreshAtlassianToken,
   refreshAzureToken,
@@ -68,6 +68,7 @@ async function startServer() {
       );
       await refreshAzureToken(req, res, azureOAuthService, isSecureCookie);
 
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(__dirname, '../public/index.html'));
     })
   );
@@ -112,7 +113,7 @@ async function startServer() {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
-      const output = await callAIWithStream(
+      const output = await handleChatRequest(
         {
           input,
           slackToken,
