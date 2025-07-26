@@ -1,13 +1,11 @@
-#!/usr/bin/env node
+/**
+ * Test script for azure__get_upcoming_calendar tool
+ */
 
-import dotenv from 'dotenv';
 import { AzureOAuthService } from '../src/services/azureOAuthService.js';
 import { AzureAPIClient } from '../src/mcp-servers/azure/azure-client.js';
 import { AzureTools } from '../src/mcp-servers/azure/azure-tools.js';
 import { requireAzureToken } from './get-tokens.js';
-
-// Load environment variables
-dotenv.config();
 
 async function testAzureCalendar() {
   console.log('📅 Testing Azure Calendar Tool...\n');
