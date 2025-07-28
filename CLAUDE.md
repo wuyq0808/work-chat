@@ -29,7 +29,7 @@
 
 ### Location: `quick-tests/` directory
 - Contains test scripts for API and MCP tool testing
-- Each script tests specific functionality (Azure, Atlassian, etc.)
+- **Pattern**: `test-{tool_name}.ts` - One script per tool
 - Uses `get-tokens.js` utility for extracting auth tokens from COOKIES
 
 ### Setup for Testing:
@@ -39,16 +39,24 @@
    - Add to `.env` file: `COOKIES="your_cookie_string_here"`
    - Include tokens like: `azure_token=xxx; slack_token=yyy; atlassian_token=zzz`
 
-2. **Run any test script**:
+2. **Run quick test scripts**:
    ```bash
-   npm run test:script quick-tests/test-azure-email-search.ts
-   npm run test:script quick-tests/test-atlassian-tools.ts
-   npm run test:script quick-tests/test-combined-azure.ts
+   # Atlassian tools
+   npm run test:script quick-tests/test-atlassian__jira_get_latest_issues.ts
+   npm run test:script quick-tests/test-atlassian__confluence_get_latest_pages.ts
+   npm run test:script quick-tests/test-atlassian__search_jira_issues.ts
+   npm run test:script quick-tests/test-atlassian__search_confluence_pages.ts
+   npm run test:script quick-tests/test-atlassian__get_latest_activity.ts
+   
+   # Azure tools
+   npm run test:script quick-tests/test-azure__search_email.ts
+   npm run test:script quick-tests/test-azure__get_upcoming_calendar.ts
+   
+   # Slack tools
+   npm run test:script quick-tests/test-slack__get_latest_messages.ts
    ```
 
 ### Token Utility:
 - All scripts use `get-tokens.js` utility for consistent token extraction
 - Supports Azure, Slack, and Atlassian tokens from COOKIES environment variable
-
-
-
+- Environment loading centralized in `get-tokens.ts` (imported automatically)

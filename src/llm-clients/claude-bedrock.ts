@@ -1,5 +1,5 @@
 import { ChatBedrockConverse } from '@langchain/aws';
-import type { AIRequest } from '../services/llmService.js';
+import type { ChatRequest } from '../llm/llm-router.js';
 import { withRetry, isBedrockThrottlingError } from '../utils/retry-utils.js';
 import {
   BedrockRuntimeClient,
@@ -76,7 +76,7 @@ export class RetryableClaudeBedrockChat {
 }
 
 export async function callClaudeBedrock(
-  request: AIRequest,
+  request: ChatRequest,
   version: '35' | '37',
   awsConfig: AWSConfig
 ): Promise<string> {

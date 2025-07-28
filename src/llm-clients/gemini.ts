@@ -1,5 +1,4 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import type { AIRequest } from '../services/llmService.js';
 import { withRetry, isGeminiPartsError } from '../utils/retry-utils.js';
 
 // Create a wrapper that implements retry logic for Gemini
@@ -36,10 +35,4 @@ class RetryableGeminiChat {
 // Export function to create Gemini chat model for LangChainChat
 export function createGeminiChatModel(): RetryableGeminiChat {
   return new RetryableGeminiChat();
-}
-
-export async function callGemini(_request: AIRequest): Promise<string> {
-  throw new Error(
-    'callGemini is deprecated - Gemini is now handled through LangChainChat in llmService'
-  );
 }

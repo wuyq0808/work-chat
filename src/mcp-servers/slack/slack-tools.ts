@@ -18,9 +18,9 @@ interface ConversationsRepliesArgs {
 
 interface SearchMessagesArgs {
   query: string;
+  before_date?: string;
+  after_date?: string;
   count?: number;
-  sort?: 'score' | 'timestamp';
-  sort_dir?: 'asc' | 'desc';
 }
 
 interface GetUserLatestMessagesArgs {
@@ -100,20 +100,20 @@ export class SlackTools {
             query: z
               .string()
               .describe(
-                'Search query text with operators: from:@username or from:<@UserID> (messages from user), to:@username or to:<@UserID> (messages to user), with:@username or with:<@UserID> (conversations involving user), in:channel_name (specific channel), has:file/link/image, before:YYYY-MM-DD, after:YYYY-MM-DD. Examples: "from:@john project" or "from:<@U1234567> meeting"'
+                'Search query text (keywords, phrases). Unquoted multi-word searches for messages containing ANY of the words (OR logic), quoted phrases search for exact phrase matches.'
               ),
+            before_date: z
+              .string()
+              .optional()
+              .describe('Filter messages before date (YYYY-MM-DD)'),
+            after_date: z
+              .string()
+              .optional()
+              .describe('Filter messages after date (YYYY-MM-DD)'),
             count: z
               .number()
               .optional()
-              .describe('Number of results (default: 20)'),
-            sort: z
-              .enum(['score', 'timestamp'])
-              .optional()
-              .describe('Sort by relevance or time'),
-            sort_dir: z
-              .enum(['asc', 'desc'])
-              .optional()
-              .describe('Sort direction'),
+              .describe('Number of results (default: 50)'),
           }),
         }
       ),
@@ -197,7 +197,9 @@ export class SlackTools {
   }
 
   // Private method to group messages by channel and format with headers
-  private async formatMessagesGroupedByChannel(messages: SlackMessage[]): Promise<string> {
+  private async formatMessagesGroupedByChannel(
+    messages: SlackMessage[]
+  ): Promise<string> {
     // Group messages by channel
     const channelGroups = new Map<string, any[]>();
 
@@ -394,14 +396,24 @@ export class SlackTools {
   private async handleSearchMessages(
     args: SearchMessagesArgs
   ): Promise<ToolResponse> {
-    const { query, count = 100, sort = 'timestamp', sort_dir = 'desc' } = args;
+    const { query, before_date, after_date, count = 50 } = args;
 
     try {
+      // Build the full query string from separate parameters
+      let fullQuery = query;
+
+      if (before_date) {
+        fullQuery += ` before:${before_date}`;
+      }
+      if (after_date) {
+        fullQuery += ` after:${after_date}`;
+      }
+
+      const finalQuery = fullQuery.trim();
+
       const searchResult = await this.slackClient.searchMessages({
-        query,
+        query: finalQuery,
         count,
-        sort,
-        sort_dir,
       });
 
       const records = searchResult.map((msg: any) => [

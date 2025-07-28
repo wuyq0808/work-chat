@@ -94,6 +94,7 @@ ${toolsList}
 - "What's in Jira" → Focus on Atlassian Jira tools
 - "Check Confluence" → Focus on Atlassian Confluence tools
 - When request targets specific platform, use only that platform's tools
+- Search across platforms if no platform is specified
 
 ## QUALITY ASSURANCE
 - Do not display any User ID / Message ID in response
