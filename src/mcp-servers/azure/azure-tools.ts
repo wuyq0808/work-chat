@@ -187,7 +187,6 @@ export class AzureTools {
         event.attendees.join(';'),
         event.organizer,
         event.importance,
-        event.body,
       ]);
 
       const content = stringify(records, {
@@ -201,7 +200,6 @@ export class AzureTools {
           'attendees',
           'organizer',
           'importance',
-          'body',
         ],
       });
 
@@ -392,7 +390,6 @@ export class AzureTools {
           event.attendees.join(';'),
           event.organizer,
           event.importance,
-          event.body,
         ]);
 
         const content = stringify(records, {
@@ -406,7 +403,6 @@ export class AzureTools {
             'attendees',
             'organizer',
             'importance',
-            'body',
           ],
         });
 

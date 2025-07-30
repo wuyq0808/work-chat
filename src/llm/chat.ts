@@ -11,6 +11,7 @@ import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
 import { AzureTools } from '../mcp-servers/azure/azure-tools.js';
 import { AtlassianAPIClient } from '../mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
+import { CombinedTools } from '../mcp-servers/combined/combined-tools.js';
 
 export interface ChatModel {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain response types vary by model
@@ -81,7 +82,7 @@ Available tools:
 ${toolsList}
 
 ## FOR VAGUE REQUEST like "find me something" or "show me something important":
-- Prioritize tools slack__get_latest_messages azure__get_emails_and_calendar atlassian__get_latest_activity
+- Prioritize cross-platform tools
 - Prioritize Slack, Emails, recent content
 - Aim for more than 30 pieces of information if request is vague
 - Concise responses
@@ -160,11 +161,14 @@ async function setupTools(request: {
   timezone?: string;
 }): Promise<StructuredTool[]> {
   const allTools: StructuredTool[] = [];
+  let slackTools: SlackTools | undefined;
+  let azureTools: AzureTools | undefined;
+  let atlassianTools: AtlassianTools | undefined;
 
   // Setup Slack tools
   if (request.slackToken) {
     const slackClient = new SlackAPIClient(request.slackToken);
-    const slackTools = new SlackTools(slackClient);
+    slackTools = new SlackTools(slackClient);
     allTools.push(...slackTools.getTools());
   }
 
@@ -173,7 +177,7 @@ async function setupTools(request: {
     const azureClient = new AzureAPIClient({
       accessToken: request.azureToken,
     });
-    const azureTools = new AzureTools(azureClient, request.timezone);
+    azureTools = new AzureTools(azureClient, request.timezone);
     allTools.push(...azureTools.getTools());
   }
 
@@ -182,8 +186,18 @@ async function setupTools(request: {
     const atlassianClient = new AtlassianAPIClient({
       accessToken: request.atlassianToken,
     });
-    const atlassianTools = new AtlassianTools(atlassianClient);
+    atlassianTools = new AtlassianTools(atlassianClient);
     allTools.push(...atlassianTools.getTools());
+  }
+
+  // Setup Combined tools (only if at least one platform is available)
+  if (slackTools || azureTools || atlassianTools) {
+    const combinedTools = new CombinedTools(
+      slackTools,
+      azureTools,
+      atlassianTools
+    );
+    allTools.push(...combinedTools.getTools());
   }
 
   if (allTools.length === 0) {
