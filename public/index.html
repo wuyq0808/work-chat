@@ -72,11 +72,17 @@
             </span>
         </p>
         
-        <div style="position: relative; display: inline-block;">
-            <textarea id="message" rows="4" cols="50" placeholder="find something important in 14 days" required 
-                style="padding-right: 50px;">find something important in 14 days</textarea>
-            <button type="submit" id="submitBtn" 
-                style="position: absolute; right: 5px; top: 5px;">Send</button>
+        <div style="display: flex; align-items: flex-end; gap: 15px;">
+            <div style="position: relative; display: inline-block;">
+                <textarea id="message" rows="4" cols="50" placeholder="find something important in 14 days" required 
+                    style="padding-right: 50px;">find something important in 14 days</textarea>
+                <button type="submit" id="submitBtn" 
+                    style="position: absolute; right: 5px; top: 5px;">Send</button>
+            </div>
+            
+            <div id="tokenUsage" style="color: #666; font-size: 12px; white-space: nowrap;">
+                <span id="tokenDetails">Tokens in: 0 out: 0</span>
+            </div>
         </div>
         
     </form>
@@ -103,9 +109,23 @@
         // Conversation management
         let currentConversationId = null;
         let toolCallHistory = [];
+        let accumulatedTokens = {
+            input_tokens: 0,
+            output_tokens: 0
+        };
         
         function generateConversationId() {
             return Math.random().toString(36).substr(2, 9);
+        }
+        
+        function updateTokenDisplay(tokenUsage) {
+            // Accumulate tokens
+            if (tokenUsage.input_tokens) accumulatedTokens.input_tokens += tokenUsage.input_tokens;
+            if (tokenUsage.output_tokens) accumulatedTokens.output_tokens += tokenUsage.output_tokens;
+            
+            // Update display
+            const tokenDetails = document.getElementById('tokenDetails');
+            tokenDetails.textContent = `Tokens in: ${accumulatedTokens.input_tokens} out: ${accumulatedTokens.output_tokens}`;
         }
         
         
@@ -214,9 +234,13 @@
         }
         
         async function sendMessage() {
-            // Clear tool history for each new request
+            // Clear tool history and reset tokens for each new request
             toolCallHistory = [];
+            accumulatedTokens = { input_tokens: 0, output_tokens: 0 };
             updateToolHistory();
+            
+            // Reset token display to 0s
+            document.getElementById('tokenDetails').textContent = 'Tokens in: 0 out: 0';
             
             const slackToken = slackTokenFromCookie;
             const message = document.getElementById('message').value;
@@ -308,6 +332,11 @@
                                     case 'tool_error':
                                         // Update tool history with error
                                         addToolCall(data.data.tool, null, 'error', null, data.data.error);
+                                        break;
+                                        
+                                    case 'token_usage':
+                                        // Update token display
+                                        updateTokenDisplay(data.data);
                                         break;
                                         
                                     case 'complete':

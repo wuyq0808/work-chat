@@ -103,6 +103,29 @@ ${toolsList}
 - Never ask follow-up questions or suggest ways to make requests more specific`);
 }
 
+// Helper function to extract token usage from LangChain responses
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
+function extractTokenUsage(message: any):
+  | {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    }
+  | undefined {
+  // Check for usage_metadata (preferred method in LangChain 2024+)
+  if (message.usage_metadata) {
+    const result = {
+      input_tokens: message.usage_metadata.input_tokens,
+      output_tokens: message.usage_metadata.output_tokens,
+      total_tokens: message.usage_metadata.total_tokens,
+    };
+    console.log('🔢 Extracted token usage (usage_metadata):', result);
+    return result;
+  }
+
+  return undefined;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
 function extractContentAsString(message: any): string {
   if (typeof message.content === 'string') {
@@ -281,6 +304,15 @@ async function processResponseWithTools(
 
   addToConversationHistory(conversationId, finalResponse);
 
+  // Extract and send token usage via progress callback
+  const tokenUsage = extractTokenUsage(finalResponse);
+  if (tokenUsage && onProgress) {
+    onProgress({
+      type: 'token_usage',
+      data: tokenUsage,
+    });
+  }
+
   // Process the final response recursively to handle potential additional tool calls
   return processResponseWithTools(
     finalResponse,
@@ -364,6 +396,15 @@ export async function chat(
   // Add final AI response to history only if it has meaningful content
   if (hasContentText(finalAIMessage)) {
     addToConversationHistory(conversationId, finalAIMessage);
+  }
+
+  // Extract and send token usage via progress callback
+  const tokenUsage = extractTokenUsage(finalAIMessage);
+  if (tokenUsage && request.onProgress) {
+    request.onProgress({
+      type: 'token_usage',
+      data: tokenUsage,
+    });
   }
 
   return extractContentAsString(finalAIMessage);
