@@ -17,7 +17,7 @@ import {
   ToolCallExecutionResult,
   setupTools,
   formatMessageContent,
-} from './utils.js';
+} from './chat-utils.js';
 import {
   getConversationHistory,
   addToConversationHistory,
