@@ -7,7 +7,9 @@ import {
   mapStoredMessagesToChatMessages,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { summarizeConversationHistory } from './conversation-summarizer.js';
+import { getTokenUsage, updateTokenUsage } from './util.js';
 import Keyv from 'keyv';
 import KeyvSqlite from '@keyv/sqlite';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
@@ -17,15 +19,6 @@ import { AzureTools } from '../mcp-servers/azure/azure-tools.js';
 import { AtlassianAPIClient } from '../mcp-servers/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
 import { CombinedTools } from '../mcp-servers/combined/combined-tools.js';
-
-export interface ChatModel {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain response types vary by model
-  invoke(messages: BaseMessage[]): Promise<any>;
-  bindTools(
-    tools: StructuredTool[],
-    options?: { parallel_tool_calls?: boolean }
-  ): ChatModel;
-}
 
 export interface ToolExecutionResult {
   tool: string;
@@ -71,7 +64,7 @@ async function addToConversationHistory(
   await conversationStore.set(conversationId, serializedMessages);
 }
 
-function createPromptEnhancementMessage(
+function createSystemMessage(
   availableTools: StructuredTool[],
   azureName?: string,
   slackUserId?: string,
@@ -126,29 +119,6 @@ ${toolsList}
 - Never ask follow-up questions or suggest ways to make requests more specific`);
 }
 
-// Helper function to extract token usage from LangChain responses
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
-function extractTokenUsage(message: any): {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-} {
-  // Check for usage_metadata (preferred method in LangChain 2024+)
-  if (message.usage_metadata) {
-    return {
-      input_tokens: message.usage_metadata.input_tokens || 0,
-      output_tokens: message.usage_metadata.output_tokens || 0,
-      total_tokens: message.usage_metadata.total_tokens || 0,
-    };
-  }
-
-  return {
-    input_tokens: 0,
-    output_tokens: 0,
-    total_tokens: 0,
-  };
-}
-
 function shouldSummarize(tokenUsage: {
   input_tokens: number;
   output_tokens: number;
@@ -176,12 +146,6 @@ function extractContentAsString(message: any): string {
   }
 
   return JSON.stringify(message.content);
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
-function hasContentText(message: any): boolean {
-  const contentText = extractContentAsString(message);
-  return contentText.trim() !== '';
 }
 
 async function setupTools(request: {
@@ -244,7 +208,7 @@ async function processResponseWithTools(
   response: any,
   tools: StructuredTool[],
   conversationId: string,
-  chatModel: ChatModel,
+  chatModel: BaseChatModel,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
   onProgress?: (event: { type: string; data: any }) => void
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Returns LangChain message which varies by model
@@ -335,10 +299,11 @@ async function processResponseWithTools(
   // Get current conversation history for the final response
   const currentHistory = await getConversationHistory(conversationId);
 
-  // Must bind tools when processing tool results with parallel execution enabled
-  const modelWithTools = chatModel.bindTools(tools, {
-    parallel_tool_calls: true,
-  });
+  // Must bind tools when processing tool results
+  if (!chatModel.bindTools) {
+    throw new Error('Chat model does not support tool binding');
+  }
+  const modelWithTools = chatModel.bindTools(tools);
 
   onProgress?.({
     type: 'ai_processing',
@@ -349,7 +314,7 @@ async function processResponseWithTools(
   await addToConversationHistory(conversationId, finalResponse);
 
   // Check if conversation should be summarized
-  const tokenUsage = extractTokenUsage(finalResponse);
+  const tokenUsage = getTokenUsage(finalResponse);
   if (shouldSummarize(tokenUsage)) {
     const updatedHistory = await getConversationHistory(conversationId);
     const summarizedHistory = await summarizeConversationHistory(
@@ -361,12 +326,7 @@ async function processResponseWithTools(
     await conversationStore.set(conversationId, serializedHistory);
   }
 
-  if (onProgress) {
-    onProgress({
-      type: 'token_usage',
-      data: tokenUsage,
-    });
-  }
+  updateTokenUsage(finalResponse, onProgress);
 
   // Process the final response recursively to handle potential additional tool calls
   return processResponseWithTools(
@@ -390,7 +350,7 @@ export async function chat(
     timezone?: string;
     onProgress?: (event: { type: string; data: any }) => void;
   },
-  chatModel: ChatModel
+  chatModel: BaseChatModel
 ): Promise<string> {
   const { conversationId } = request;
 
@@ -408,7 +368,7 @@ export async function chat(
   if (history.length === 0) {
     await addToConversationHistory(
       conversationId,
-      createPromptEnhancementMessage(
+      createSystemMessage(
         allTools,
         request.azureName,
         request.slackUserId,
@@ -423,10 +383,11 @@ export async function chat(
 
   request.onProgress?.({ type: 'status', data: 'Starting new query...' });
 
-  // Bind tools to the model with parallel execution enabled
-  const modelWithTools = chatModel.bindTools(allTools, {
-    parallel_tool_calls: true,
-  });
+  // Bind tools to the model
+  if (!chatModel.bindTools) {
+    throw new Error('Chat model does not support tool binding');
+  }
+  const modelWithTools = chatModel.bindTools(allTools);
 
   // Get the response (which might include tool calls)
   const currentHistory = await getConversationHistory(conversationId);
@@ -448,19 +409,11 @@ export async function chat(
     request.onProgress
   );
 
-  // Add final AI response to history only if it has meaningful content
-  if (hasContentText(finalAIMessage)) {
-    await addToConversationHistory(conversationId, finalAIMessage);
-  }
+  // Add final AI response to history
+  await addToConversationHistory(conversationId, finalAIMessage);
 
   // Extract and send token usage via progress callback
-  const tokenUsage = extractTokenUsage(finalAIMessage);
-  if (request.onProgress) {
-    request.onProgress({
-      type: 'token_usage',
-      data: tokenUsage,
-    });
-  }
+  updateTokenUsage(finalAIMessage, request.onProgress);
 
   return extractContentAsString(finalAIMessage);
 }
