@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
+import type { ProgressCallback } from './types/progress.js';
 import {
   loadAppConfigWithFallbacks,
   getSlackConfig,
@@ -109,7 +110,7 @@ async function startServer() {
       const slackUserId = getSlackUserIdFromCookie(req);
 
       // Progress callback function
-      const onProgress = (event: { type: string; data: any }) => {
+      const onProgress: ProgressCallback = (event) => {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 

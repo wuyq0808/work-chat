@@ -2,6 +2,10 @@ import { AIMessage } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
 import type { ToolCall } from '@langchain/core/messages/tool';
 import type { MessageContent } from '@langchain/core/messages';
+import type { ProgressCallback } from '../types/progress.js';
+
+// Re-export for convenience
+export type { ProgressCallback } from '../types/progress.js';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
 import { SlackTools } from '../mcp-servers/slack/slack-tools.js';
 import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
@@ -61,7 +65,7 @@ export function getTokenUsage(message: AIMessage): number {
 // Helper function to update token usage via progress callback
 export function updateTokenUsage(
   message: AIMessage,
-  onProgress?: (event: { type: string; data: any }) => void
+  onProgress?: ProgressCallback
 ): void {
   const totalTokens = getTokenUsage(message);
   if (onProgress) {
@@ -75,7 +79,7 @@ export function updateTokenUsage(
 export async function executeToolCall(
   toolCall: ToolCall,
   tools: StructuredTool[],
-  onProgress?: (event: { type: string; data: any }) => void
+  onProgress?: ProgressCallback
 ): Promise<ToolCallExecutionResult> {
   const tool = tools.find(t => t.name === toolCall.name);
 

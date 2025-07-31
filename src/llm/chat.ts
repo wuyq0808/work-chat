@@ -9,6 +9,7 @@ import type { ToolCall } from '@langchain/core/messages/tool';
 import { StructuredTool } from '@langchain/core/tools';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { summarizeConversationHistory } from './conversation-summarizer.js';
+import type { ProgressCallback } from '../types/progress.js';
 import {
   getTokenUsage,
   updateTokenUsage,
@@ -90,8 +91,7 @@ async function processResponseWithTools(
   tools: StructuredTool[],
   conversationId: string,
   chatModel: BaseChatModel,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
-  onProgress?: (event: { type: string; data: any }) => void
+  onProgress?: ProgressCallback
 ): Promise<AIMessage> {
   const toolCalls = response.tool_calls;
 
@@ -176,7 +176,7 @@ export async function chat(
     azureName?: string;
     slackUserId?: string;
     timezone?: string;
-    onProgress?: (event: { type: string; data: any }) => void;
+    onProgress?: ProgressCallback;
   },
   chatModel: BaseChatModel
 ): Promise<string> {

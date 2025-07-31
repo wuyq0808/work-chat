@@ -1,6 +1,7 @@
 import { claudeBedrock } from '../llm-clients/claude-bedrock.js';
 import { chat } from '../llm/chat.js';
 import { AWSConfig } from '../utils/secrets-manager.js';
+import type { ProgressCallback } from '../types/progress.js';
 
 const AI_PROVIDERS = {
   CLAUDE_BEDROCK_37: 'claude-bedrock-37',
@@ -24,8 +25,7 @@ export interface ChatRequest {
   provider?: string;
   conversationId?: string;
   timezone?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
-  onProgress?: (event: { type: string; data: any }) => void;
+  onProgress?: ProgressCallback;
 }
 
 async function handleClaudeBedrockChat(
