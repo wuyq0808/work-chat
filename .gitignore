@@ -29,3 +29,6 @@ npm-debug.log*
 
 # Cache files
 .cache/
+
+# Database files
+conversations.sqlite

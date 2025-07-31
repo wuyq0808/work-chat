@@ -51,7 +51,7 @@ export class CombinedTools {
     const { days = 7 } = args;
 
     // Prepare tool calls
-    const toolCalls = [];
+    const toolCalls: Array<{ name: string; args: unknown; promise: Promise<string> }> = [];
 
     // Add Slack tool call if available
     if (this.slackTools) {
@@ -62,6 +62,7 @@ export class CombinedTools {
       if (slackGetLatestTool) {
         toolCalls.push({
           name: 'Slack',
+          args: { limit: 50 },
           promise: slackGetLatestTool.invoke({ limit: 50 }),
         });
       }
@@ -76,6 +77,7 @@ export class CombinedTools {
       if (azureGetEmailsCalendarTool) {
         toolCalls.push({
           name: 'Azure',
+          args: { days },
           promise: azureGetEmailsCalendarTool.invoke({ days }),
         });
       }
@@ -90,6 +92,7 @@ export class CombinedTools {
       if (atlassianGetLatestTool) {
         toolCalls.push({
           name: 'Atlassian',
+          args: { days },
           promise: atlassianGetLatestTool.invoke({ days }),
         });
       }

@@ -5,6 +5,8 @@ import {
   BaseMessage,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
+import Keyv from 'keyv';
+import KeyvSqlite from '@keyv/sqlite';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
 import { SlackTools } from '../mcp-servers/slack/slack-tools.js';
 import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
@@ -30,23 +32,34 @@ export interface ToolExecutionResult {
   error?: string;
 }
 
-// Global conversation histories that persist across handler instances
-const conversationHistories = new Map<string, BaseMessage[]>();
-
-function getConversationHistory(conversationId: string): BaseMessage[] {
-  if (!conversationHistories.has(conversationId)) {
-    conversationHistories.set(conversationId, []);
+// Persistent conversation histories using Keyv with SQLite
+const conversationStore = new Keyv<BaseMessage[]>(
+  new KeyvSqlite('sqlite://conversations.sqlite'),
+  {
+    namespace: 'conversations',
+    ttl: 1000 * 60 * 60 * 24, // 1 day TTL
   }
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- We just set it above if not exists
-  return conversationHistories.get(conversationId)!;
+);
+
+// Handle storage errors
+conversationStore.on('error', err => {
+  console.error('Conversation storage error:', err);
+});
+
+async function getConversationHistory(
+  conversationId: string
+): Promise<BaseMessage[]> {
+  const history = await conversationStore.get(conversationId);
+  return history || [];
 }
 
-function addToConversationHistory(
+async function addToConversationHistory(
   conversationId: string,
   message: BaseMessage
-): void {
-  const history = getConversationHistory(conversationId);
+): Promise<void> {
+  const history = await getConversationHistory(conversationId);
   history.push(message);
+  await conversationStore.set(conversationId, history);
 }
 
 function createPromptEnhancementMessage(
@@ -115,13 +128,11 @@ function extractTokenUsage(message: any):
   | undefined {
   // Check for usage_metadata (preferred method in LangChain 2024+)
   if (message.usage_metadata) {
-    const result = {
+    return {
       input_tokens: message.usage_metadata.input_tokens,
       output_tokens: message.usage_metadata.output_tokens,
       total_tokens: message.usage_metadata.total_tokens,
     };
-    console.log('🔢 Extracted token usage (usage_metadata):', result);
-    return result;
   }
 
   return undefined;
@@ -298,12 +309,12 @@ async function processResponseWithTools(
   );
 
   // Add tool messages to conversation history
-  toolMessages.forEach((toolMessage, _index) => {
-    addToConversationHistory(conversationId, toolMessage);
-  });
+  for (const toolMessage of toolMessages) {
+    await addToConversationHistory(conversationId, toolMessage);
+  }
 
   // Get current conversation history for the final response
-  const currentHistory = getConversationHistory(conversationId);
+  const currentHistory = await getConversationHistory(conversationId);
 
   // Must bind tools when processing tool results with parallel execution enabled
   const modelWithTools = chatModel.bindTools(tools, {
@@ -316,7 +327,7 @@ async function processResponseWithTools(
   });
   const finalResponse = await modelWithTools.invoke(currentHistory);
 
-  addToConversationHistory(conversationId, finalResponse);
+  await addToConversationHistory(conversationId, finalResponse);
 
   // Extract and send token usage via progress callback
   const tokenUsage = extractTokenUsage(finalResponse);
@@ -361,11 +372,11 @@ export async function chat(
   const allTools = await setupTools(request);
 
   // Get conversation history
-  const history = getConversationHistory(conversationId);
+  const history = await getConversationHistory(conversationId);
 
   // Add system message at the beginning if this is a new conversation
   if (history.length === 0) {
-    addToConversationHistory(
+    await addToConversationHistory(
       conversationId,
       createPromptEnhancementMessage(
         allTools,
@@ -378,7 +389,7 @@ export async function chat(
 
   // Add user message to history
   const userMessage = new HumanMessage(request.input);
-  addToConversationHistory(conversationId, userMessage);
+  await addToConversationHistory(conversationId, userMessage);
 
   request.onProgress?.({ type: 'status', data: 'Starting new query...' });
 
@@ -388,7 +399,7 @@ export async function chat(
   });
 
   // Get the response (which might include tool calls)
-  const currentHistory = getConversationHistory(conversationId);
+  const currentHistory = await getConversationHistory(conversationId);
 
   request.onProgress?.({
     type: 'ai_processing',
@@ -396,7 +407,7 @@ export async function chat(
   });
   const response = await modelWithTools.invoke(currentHistory);
 
-  addToConversationHistory(conversationId, response);
+  await addToConversationHistory(conversationId, response);
 
   // Handle the response which may contain tool calls
   const finalAIMessage = await processResponseWithTools(
@@ -409,7 +420,7 @@ export async function chat(
 
   // Add final AI response to history only if it has meaningful content
   if (hasContentText(finalAIMessage)) {
-    addToConversationHistory(conversationId, finalAIMessage);
+    await addToConversationHistory(conversationId, finalAIMessage);
   }
 
   // Extract and send token usage via progress callback
