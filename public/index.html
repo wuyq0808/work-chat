@@ -247,7 +247,7 @@
             submitBtn.disabled = true;
             responseDiv.style.display = 'block';
             responseContent.textContent = '';
-            progressStatus.innerHTML = 'AI processing<span class="loading-dots"></span>';
+            progressStatus.textContent = '';
             
             
             try {
@@ -301,7 +301,7 @@
                                         break;
                                         
                                     case 'ai_processing':
-                                        progressStatus.innerHTML = 'AI processing<span class="loading-dots"></span>';
+                                        progressStatus.innerHTML = 'Processing<span class="loading-dots"></span>';
                                         break;
                                         
                                     case 'tool_start':
