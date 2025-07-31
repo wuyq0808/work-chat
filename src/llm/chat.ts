@@ -3,13 +3,20 @@ import {
   ToolMessage,
   SystemMessage,
   BaseMessage,
+  AIMessage,
   mapChatMessagesToStoredMessages,
   mapStoredMessagesToChatMessages,
 } from '@langchain/core/messages';
+import type { ToolCall } from '@langchain/core/messages/tool';
 import { StructuredTool } from '@langchain/core/tools';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { summarizeConversationHistory } from './conversation-summarizer.js';
-import { getTokenUsage, updateTokenUsage } from './util.js';
+import {
+  getTokenUsage,
+  updateTokenUsage,
+  executeToolCall,
+  ToolCallExecutionResult,
+} from './utils.js';
 import Keyv from 'keyv';
 import KeyvSqlite from '@keyv/sqlite';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
@@ -204,89 +211,37 @@ async function setupTools(request: {
 }
 
 async function processResponseWithTools(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain response type varies by model
-  response: any,
+  response: AIMessage,
   tools: StructuredTool[],
   conversationId: string,
   chatModel: BaseChatModel,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Progress data can be any shape
   onProgress?: (event: { type: string; data: any }) => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Returns LangChain message which varies by model
-): Promise<any> {
-  const hasToolCalls = response.tool_calls && response.tool_calls.length > 0;
+): Promise<AIMessage> {
+  const toolCalls = response.tool_calls;
 
-  if (!hasToolCalls) {
+  if (!toolCalls || toolCalls.length === 0) {
     // No tool calls, return the original response immediately
     return response;
   }
 
   // Execute all tool calls in parallel using Promise.all
-  const toolResults = await Promise.all(
-    response.tool_calls.map(async (toolCall: any) => {
-      const tool = tools.find(t => t.name === toolCall.name);
-
-      if (!tool) {
-        const error = `Tool ${toolCall.name} not found`;
-        onProgress?.({
-          type: 'tool_error',
-          data: {
-            tool: toolCall.name,
-            error,
-          },
-        });
-        return { toolCall, result: null, error };
-      }
-
-      // Send progress update for tool execution start
-      onProgress?.({
-        type: 'tool_start',
-        data: {
-          tool: toolCall.name,
-          args: toolCall.args,
-        },
-      });
-
-      try {
-        const result = await tool.invoke(toolCall.args);
-
-        // Send progress update for tool completion
-        onProgress?.({
-          type: 'tool_complete',
-          data: {
-            tool: toolCall.name,
-          },
-        });
-
-        return { toolCall, result, error: null };
-      } catch (error) {
-        // Send progress update for tool error
-        onProgress?.({
-          type: 'tool_error',
-          data: {
-            tool: toolCall.name,
-            error: String(error),
-          },
-        });
-
-        return { toolCall, result: null, error: String(error) };
-      }
-    })
+  const toolResults: ToolCallExecutionResult[] = await Promise.all(
+    toolCalls.map((toolCall: ToolCall) =>
+      executeToolCall(toolCall, tools, onProgress)
+    )
   );
 
   // Convert results to ToolMessages
   const toolMessages: ToolMessage[] = toolResults.map(
     ({ toolCall, result, error }) => {
-      let content: string;
-
-      if (error) {
-        content = `Error executing ${toolCall.name}: ${error}`;
-      } else {
-        content = String(result);
-      }
+      const content = error
+        ? `Error executing ${toolCall.name}: ${error}`
+        : result;
 
       return new ToolMessage({
         content,
-        tool_call_id: toolCall.id,
+        tool_call_id: toolCall.id || '',
       });
     }
   );
