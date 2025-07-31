@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { InstallProvider } from '@slack/oauth';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import type { SlackConfig } from '../utils/secrets-manager.js';
+import { getCookieString } from '../utils/cookie-utils.js';
 
 export class SlackOAuthService {
   private installer: InstallProvider;
@@ -85,19 +86,31 @@ export class SlackOAuthService {
           // Set secure HttpOnly cookies for token and team info
           const isProduction = process.env.NODE_ENV === 'production';
 
-          // Set cookies manually since res.cookie doesn't exist on ServerResponse
-          const secureCookieString = (name: string, value: string) =>
-            `${name}=${encodeURIComponent(value)}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
-
-          const regularCookieString = (name: string, value: string) =>
-            `${name}=${encodeURIComponent(value)}; ${isProduction ? 'Secure; ' : ''}SameSite=Strict; Max-Age=86400; Path=/`;
-
-          const cookies = [secureCookieString('slack_token', userToken)];
+          // Set cookies using unified utility function
+          const cookies = [
+            getCookieString('slack_token', userToken, {
+              expiresIn: 86400, // 24 hours
+              isSecureCookie: isProduction,
+              httpOnly: true,
+            }),
+          ];
           if (teamName) {
-            cookies.push(regularCookieString('team_name', teamName));
+            cookies.push(
+              getCookieString('team_name', teamName, {
+                expiresIn: 86400, // 24 hours
+                isSecureCookie: isProduction,
+                httpOnly: false,
+              })
+            );
           }
           if (userId) {
-            cookies.push(regularCookieString('slack_user_id', userId));
+            cookies.push(
+              getCookieString('slack_user_id', userId, {
+                expiresIn: 86400, // 24 hours
+                isSecureCookie: isProduction,
+                httpOnly: false,
+              })
+            );
           }
           res.setHeader('Set-Cookie', cookies);
 

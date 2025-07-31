@@ -19,30 +19,20 @@ interface AzureTokenResponse {
   scope: string;
 }
 
-export function accessTokenCookieString(
+export function getCookieString(
   name: string,
   value: string,
-  expiresIn: number,
-  isSecureCookie: boolean
+  options: {
+    expiresIn: number;
+    isSecureCookie: boolean;
+    httpOnly?: boolean;
+  }
 ): string {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; ${isSecureCookie ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${expiresIn}; Path=/`;
-}
+  const { expiresIn, isSecureCookie, httpOnly = false } = options;
+  const httpOnlyString = httpOnly ? 'HttpOnly; ' : '';
+  const secureString = isSecureCookie ? 'Secure; ' : '';
 
-export function refreshTokenCookieString(
-  name: string,
-  value: string,
-  isSecureCookie: boolean
-): string {
-  return `${name}=${encodeURIComponent(value)}; HttpOnly; ${isSecureCookie ? 'Secure; ' : ''}SameSite=Strict; Max-Age=2592000; Path=/`;
-}
-
-export function regularCookieString(
-  name: string,
-  value: string,
-  expiresIn: number,
-  isSecureCookie: boolean
-): string {
-  return `${name}=${encodeURIComponent(value)}; ${isSecureCookie ? 'Secure; ' : ''}SameSite=Strict; Max-Age=${expiresIn}; Path=/`;
+  return `${name}=${encodeURIComponent(value)}; ${httpOnlyString}${secureString}SameSite=Strict; Max-Age=${expiresIn}; Path=/`;
 }
 
 export function setAtlassianCookies(
@@ -50,23 +40,21 @@ export function setAtlassianCookies(
   isSecureCookie: boolean
 ): string[] {
   return [
-    accessTokenCookieString(
-      'atlassian_token',
-      tokenData.access_token,
-      tokenData.expires_in,
-      isSecureCookie
-    ),
-    refreshTokenCookieString(
-      'atlassian_refresh_token',
-      tokenData.refresh_token,
-      isSecureCookie
-    ),
-    regularCookieString(
-      'atlassian_connected',
-      'true',
-      tokenData.expires_in,
-      isSecureCookie
-    ),
+    getCookieString('atlassian_token', tokenData.access_token, {
+      expiresIn: tokenData.expires_in,
+      isSecureCookie,
+      httpOnly: true,
+    }),
+    getCookieString('atlassian_refresh_token', tokenData.refresh_token, {
+      expiresIn: 2592000, // 30 days
+      isSecureCookie,
+      httpOnly: true,
+    }),
+    getCookieString('atlassian_connected', 'true', {
+      expiresIn: tokenData.expires_in,
+      isSecureCookie,
+      httpOnly: false,
+    }),
   ];
 }
 
@@ -76,28 +64,29 @@ export function setAzureCookies(
   isSecureCookie: boolean
 ): string[] {
   return [
-    accessTokenCookieString(
-      'azure_token',
-      tokenData.access_token,
-      tokenData.expires_in,
-      isSecureCookie
-    ),
-    refreshTokenCookieString(
-      'azure_refresh_token',
-      tokenData.refresh_token,
-      isSecureCookie
-    ),
-    regularCookieString(
-      'azure_user_name',
-      userInfo.displayName || '',
-      tokenData.expires_in,
-      isSecureCookie
-    ),
-    regularCookieString(
+    getCookieString('azure_token', tokenData.access_token, {
+      expiresIn: tokenData.expires_in,
+      isSecureCookie,
+      httpOnly: true,
+    }),
+    getCookieString('azure_refresh_token', tokenData.refresh_token, {
+      expiresIn: 2592000, // 30 days
+      isSecureCookie,
+      httpOnly: true,
+    }),
+    getCookieString('azure_user_name', userInfo.displayName || '', {
+      expiresIn: tokenData.expires_in,
+      isSecureCookie,
+      httpOnly: false,
+    }),
+    getCookieString(
       'azure_user_email',
       userInfo.mail || userInfo.userPrincipalName || '',
-      tokenData.expires_in,
-      isSecureCookie
+      {
+        expiresIn: tokenData.expires_in,
+        isSecureCookie,
+        httpOnly: false,
+      }
     ),
   ];
 }
