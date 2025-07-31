@@ -81,7 +81,7 @@
             </div>
             
             <div id="tokenUsage" style="color: #666; font-size: 12px; white-space: nowrap;">
-                <span id="tokenDetails">Tokens in: 0 out: 0</span>
+                <span id="tokenDetails">Tokens: 0</span>
             </div>
         </div>
         
@@ -109,23 +109,20 @@
         // Conversation management
         let currentConversationId = null;
         let toolCallHistory = [];
-        let accumulatedTokens = {
-            input_tokens: 0,
-            output_tokens: 0
-        };
+        let totalTokens = 0;
         
         function generateConversationId() {
             return Math.random().toString(36).substr(2, 9);
         }
         
         function updateTokenDisplay(tokenUsage) {
-            // Accumulate tokens
-            if (tokenUsage.input_tokens) accumulatedTokens.input_tokens += tokenUsage.input_tokens;
-            if (tokenUsage.output_tokens) accumulatedTokens.output_tokens += tokenUsage.output_tokens;
+            // Accumulate total tokens (input + output)
+            if (tokenUsage.input_tokens) totalTokens += tokenUsage.input_tokens;
+            if (tokenUsage.output_tokens) totalTokens += tokenUsage.output_tokens;
             
             // Update display
             const tokenDetails = document.getElementById('tokenDetails');
-            tokenDetails.textContent = `Tokens in: ${accumulatedTokens.input_tokens} out: ${accumulatedTokens.output_tokens}`;
+            tokenDetails.textContent = `Tokens: ${totalTokens}`;
         }
         
         
