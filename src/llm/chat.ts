@@ -2,7 +2,6 @@ import {
   HumanMessage,
   ToolMessage,
   SystemMessage,
-  BaseMessage,
   AIMessage,
 } from '@langchain/core/messages';
 import type { ToolCall } from '@langchain/core/messages/tool';
@@ -10,6 +9,7 @@ import { StructuredTool } from '@langchain/core/tools';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { summarizeConversationHistory } from './conversation-summarizer.js';
 import type { ProgressCallback } from '../types/progress.js';
+import type { OAuthCredentials } from './llm-router.js';
 import {
   getTokenUsage,
   updateTokenUsage,
@@ -169,21 +169,22 @@ async function processResponseWithTools(
 export async function chat(
   request: {
     input: string;
-    slackToken?: string;
-    azureToken?: string;
-    atlassianToken?: string;
     conversationId: string;
-    azureName?: string;
-    slackUserId?: string;
     timezone: string;
     onProgress: ProgressCallback;
+    oauthCredentials: OAuthCredentials;
   },
   chatModel: BaseChatModel
 ): Promise<string> {
   const { conversationId } = request;
 
   // Setup tools
-  const allTools = await setupTools(request);
+  const allTools = await setupTools({
+    slackToken: request.oauthCredentials.slackToken,
+    azureToken: request.oauthCredentials.azureToken,
+    atlassianToken: request.oauthCredentials.atlassianToken,
+    timezone: request.timezone,
+  });
 
   // Get conversation history
   const history = await getConversationHistory(conversationId);
@@ -194,8 +195,8 @@ export async function chat(
       conversationId,
       createSystemMessage(
         allTools,
-        request.azureName,
-        request.slackUserId,
+        request.oauthCredentials.azureName,
+        request.oauthCredentials.slackUserId,
         request.timezone
       )
     );

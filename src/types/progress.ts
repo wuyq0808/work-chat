@@ -14,7 +14,7 @@ export interface ToolErrorData {
   error: string;
 }
 
-export type ProgressEventData = 
+export type ProgressEventData =
   | { type: 'status'; data: string }
   | { type: 'ai_processing'; data: string }
   | { type: 'tool_start'; data: ToolStartData }

@@ -4,11 +4,11 @@
 
 import type { AtlassianTokenResponse } from '../types/atlassian.js';
 import type { Request, Response } from 'express';
-import { AtlassianOAuthService } from '../services/atlassianOAuthService.js';
+import { AtlassianOAuthService } from '../oauth/atlassianOAuthService.js';
 import {
   AzureOAuthService,
   type AzureUserInfo,
-} from '../services/azureOAuthService.js';
+} from '../oauth/azureOAuthService.js';
 
 // Import the Azure token response interface (we'll create a shared type)
 interface AzureTokenResponse {

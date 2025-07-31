@@ -15,17 +15,21 @@ function validateAIProvider(value: string | undefined): value is AIProvider {
   return Object.values(AI_PROVIDERS).includes(value as AIProvider);
 }
 
+export interface OAuthCredentials {
+  slackToken?: string;
+  slackUserId?: string;
+  azureToken?: string;
+  azureName?: string;
+  atlassianToken?: string;
+}
+
 export interface ChatRequest {
   input: string;
-  slackToken?: string;
-  azureToken?: string;
-  atlassianToken?: string;
-  azureName?: string;
-  slackUserId?: string;
   provider: string;
   conversationId: string;
   timezone: string;
   onProgress: ProgressCallback;
+  oauthCredentials: OAuthCredentials;
 }
 
 async function handleClaudeBedrockChat(
@@ -51,7 +55,11 @@ export async function handleChatRequest(
   }
 
   // Validate that at least one token is provided
-  if (!request.slackToken && !request.azureToken && !request.atlassianToken) {
+  if (
+    !request.oauthCredentials.slackToken &&
+    !request.oauthCredentials.azureToken &&
+    !request.oauthCredentials.atlassianToken
+  ) {
     throw new Error(
       'At least one token (Slack, Azure, or Atlassian) must be provided'
     );

@@ -11,9 +11,9 @@ import {
   getAtlassianConfig,
   getAWSConfig,
 } from './utils/secrets-manager.js';
-import { SlackOAuthService } from './services/slackOAuthService.js';
-import { AzureOAuthService } from './services/azureOAuthService.js';
-import { AtlassianOAuthService } from './services/atlassianOAuthService.js';
+import { SlackOAuthService } from './oauth/slackOAuthService.js';
+import { AzureOAuthService } from './oauth/azureOAuthService.js';
+import { AtlassianOAuthService } from './oauth/atlassianOAuthService.js';
 import {
   getSlackTokenFromCookie,
   getAzureTokenFromCookie,
@@ -110,22 +110,24 @@ async function startServer() {
       const slackUserId = getSlackUserIdFromCookie(req);
 
       // Progress callback function
-      const onProgress: ProgressCallback = (event) => {
+      const onProgress: ProgressCallback = event => {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
       };
 
       const output = await handleChatRequest(
         {
           input,
-          slackToken,
-          azureToken,
-          atlassianToken,
-          azureName,
-          slackUserId,
           provider,
           conversationId,
           timezone,
           onProgress,
+          oauthCredentials: {
+            slackToken,
+            azureToken,
+            atlassianToken,
+            azureName,
+            slackUserId,
+          },
         },
         getAWSConfig(appConfig)
       );
