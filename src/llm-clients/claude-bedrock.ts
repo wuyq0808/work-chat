@@ -3,7 +3,10 @@ import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { AWSConfig } from '../utils/secrets-manager.js';
 
 // Create a Claude Bedrock model
-export function claudeBedrock(version: '35' | '37', awsConfig: AWSConfig): BaseChatModel {
+export function claudeBedrock(
+  version: '35' | '37',
+  awsConfig: AWSConfig
+): BaseChatModel {
   const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
   const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
   const modelId =
@@ -35,4 +38,3 @@ export function claudeBedrock(version: '35' | '37', awsConfig: AWSConfig): BaseC
     maxTokens: 8192,
   });
 }
-

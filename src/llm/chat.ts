@@ -4,8 +4,6 @@ import {
   SystemMessage,
   BaseMessage,
   AIMessage,
-  mapChatMessagesToStoredMessages,
-  mapStoredMessagesToChatMessages,
 } from '@langchain/core/messages';
 import type { ToolCall } from '@langchain/core/messages/tool';
 import { StructuredTool } from '@langchain/core/tools';
@@ -19,44 +17,13 @@ import {
   setupTools,
   formatMessageContent,
 } from './utils.js';
-import Keyv from 'keyv';
-import KeyvSqlite from '@keyv/sqlite';
+import {
+  getConversationHistory,
+  addToConversationHistory,
+  updateConversationHistory,
+} from './conversation-store.js';
 
 const TOKEN_LIMIT_FOR_SUMMARIZATION = 20000;
-
-// Persistent conversation histories using Keyv with SQLite and LangChain serialization
-const conversationStore = new Keyv(
-  new KeyvSqlite('sqlite://conversations.sqlite'),
-  {
-    namespace: 'conversations',
-    ttl: 1000 * 60 * 60 * 24, // 1 day TTL
-  }
-);
-
-// Handle storage errors
-conversationStore.on('error', err => {
-  console.error('Conversation storage error:', err);
-});
-
-async function getConversationHistory(
-  conversationId: string
-): Promise<BaseMessage[]> {
-  const serializedMessages = await conversationStore.get(conversationId);
-  if (!serializedMessages) {
-    return [];
-  }
-  return mapStoredMessagesToChatMessages(serializedMessages);
-}
-
-async function addToConversationHistory(
-  conversationId: string,
-  message: BaseMessage
-): Promise<void> {
-  const history = await getConversationHistory(conversationId);
-  history.push(message);
-  const serializedMessages = mapChatMessagesToStoredMessages(history);
-  await conversationStore.set(conversationId, serializedMessages);
-}
 
 function createSystemMessage(
   availableTools: StructuredTool[],
@@ -184,9 +151,7 @@ async function processResponseWithTools(
       updatedHistory,
       chatModel
     );
-    const serializedHistory =
-      mapChatMessagesToStoredMessages(summarizedHistory);
-    await conversationStore.set(conversationId, serializedHistory);
+    await updateConversationHistory(conversationId, summarizedHistory);
   }
 
   updateTokenUsage(finalResponse, onProgress);
