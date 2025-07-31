@@ -5,11 +5,11 @@ import {
   AIMessage,
   isAIMessage,
 } from '@langchain/core/messages';
-import { ChatModel } from './chat.js';
+import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 
 export async function summarizeConversationHistory(
   messages: BaseMessage[],
-  chatModel: ChatModel
+  chatModel: BaseChatModel
 ): Promise<BaseMessage[]> {
   // Only summarize when we have more than 12 messages to ensure fresh messages remain
   if (messages.length <= 12) {
@@ -45,10 +45,7 @@ Summarize conversation messages to reduce token usage while preserving context.
   const conversationText = JSON.stringify(messagesToSummarize);
 
   const summarizationRequest = new HumanMessage(`
-Please summarize the following ${messagesToSummarize.length} conversation messages:
-
-${conversationText}
-`);
+conversation messages: ${conversationText}`);
 
   // Get summary from LLM
   const summaryResponse = await chatModel.invoke([

@@ -1,4 +1,4 @@
-import { RetryableClaudeBedrockChat } from '../llm-clients/claude-bedrock.js';
+import { claudeBedrock } from '../llm-clients/claude-bedrock.js';
 import { chat } from '../llm/chat.js';
 import { AWSConfig } from '../utils/secrets-manager.js';
 
@@ -37,7 +37,7 @@ async function handleClaudeBedrockChat(
     throw new Error('conversationId is required for Claude Bedrock');
   }
 
-  const claudeBedrockModel = new RetryableClaudeBedrockChat(version, awsConfig);
+  const claudeBedrockModel = claudeBedrock(version, awsConfig);
   return chat(request, claudeBedrockModel);
 }
 

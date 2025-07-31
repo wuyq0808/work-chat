@@ -51,7 +51,11 @@ export class CombinedTools {
     const { days = 7 } = args;
 
     // Prepare tool calls
-    const toolCalls: Array<{ name: string; args: unknown; promise: Promise<string> }> = [];
+    const toolCalls: Array<{
+      name: string;
+      args: unknown;
+      promise: Promise<string>;
+    }> = [];
 
     // Add Slack tool call if available
     if (this.slackTools) {

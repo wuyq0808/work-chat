@@ -16,24 +16,11 @@ import {
   updateTokenUsage,
   executeToolCall,
   ToolCallExecutionResult,
+  setupTools,
+  formatMessageContent,
 } from './utils.js';
 import Keyv from 'keyv';
 import KeyvSqlite from '@keyv/sqlite';
-import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
-import { SlackTools } from '../mcp-servers/slack/slack-tools.js';
-import { AzureAPIClient } from '../mcp-servers/azure/azure-client.js';
-import { AzureTools } from '../mcp-servers/azure/azure-tools.js';
-import { AtlassianAPIClient } from '../mcp-servers/atlassian/atlassian-client.js';
-import { AtlassianTools } from '../mcp-servers/atlassian/atlassian-tools.js';
-import { CombinedTools } from '../mcp-servers/combined/combined-tools.js';
-
-export interface ToolExecutionResult {
-  tool: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tool arguments can be any shape
-  args?: any;
-  result?: string;
-  error?: string;
-}
 
 const TOKEN_LIMIT_FOR_SUMMARIZATION = 20000;
 
@@ -132,82 +119,6 @@ function shouldSummarize(tokenUsage: {
   total_tokens: number;
 }): boolean {
   return tokenUsage.total_tokens > TOKEN_LIMIT_FOR_SUMMARIZATION;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
-function extractContentAsString(message: any): string {
-  if (typeof message.content === 'string') {
-    return message.content;
-  }
-
-  // Handle ChatBedrockConverse content format: array of content objects
-  if (Array.isArray(message.content)) {
-    return message.content
-      .map((item: any) => {
-        if (item.type === 'text' && item.text) {
-          return item.text;
-        }
-        return '';
-      })
-      .join('');
-  }
-
-  return JSON.stringify(message.content);
-}
-
-async function setupTools(request: {
-  slackToken?: string;
-  azureToken?: string;
-  atlassianToken?: string;
-  timezone?: string;
-}): Promise<StructuredTool[]> {
-  const allTools: StructuredTool[] = [];
-  let slackTools: SlackTools | undefined;
-  let azureTools: AzureTools | undefined;
-  let atlassianTools: AtlassianTools | undefined;
-
-  // Setup Slack tools
-  if (request.slackToken) {
-    const slackClient = new SlackAPIClient(request.slackToken);
-    slackTools = new SlackTools(slackClient);
-    allTools.push(...slackTools.getTools());
-  }
-
-  // Setup Azure tools
-  if (request.azureToken) {
-    const azureClient = new AzureAPIClient({
-      accessToken: request.azureToken,
-    });
-    azureTools = new AzureTools(azureClient, request.timezone);
-    allTools.push(...azureTools.getTools());
-  }
-
-  // Setup Atlassian tools
-  if (request.atlassianToken) {
-    const atlassianClient = new AtlassianAPIClient({
-      accessToken: request.atlassianToken,
-    });
-    atlassianTools = new AtlassianTools(atlassianClient);
-    allTools.push(...atlassianTools.getTools());
-  }
-
-  // Setup Combined tools (only if at least one platform is available)
-  if (slackTools || azureTools || atlassianTools) {
-    const combinedTools = new CombinedTools(
-      slackTools,
-      azureTools,
-      atlassianTools
-    );
-    allTools.push(...combinedTools.getTools());
-  }
-
-  if (allTools.length === 0) {
-    throw new Error(
-      'No tools were successfully initialized. Please check your tokens.'
-    );
-  }
-
-  return allTools;
 }
 
 async function processResponseWithTools(
@@ -370,5 +281,5 @@ export async function chat(
   // Extract and send token usage via progress callback
   updateTokenUsage(finalAIMessage, request.onProgress);
 
-  return extractContentAsString(finalAIMessage);
+  return formatMessageContent(finalAIMessage.content);
 }
