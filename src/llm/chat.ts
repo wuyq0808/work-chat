@@ -3,8 +3,11 @@ import {
   ToolMessage,
   SystemMessage,
   BaseMessage,
+  mapChatMessagesToStoredMessages,
+  mapStoredMessagesToChatMessages,
 } from '@langchain/core/messages';
 import { StructuredTool } from '@langchain/core/tools';
+import { summarizeConversationHistory } from './conversation-summarizer.js';
 import Keyv from 'keyv';
 import KeyvSqlite from '@keyv/sqlite';
 import { SlackAPIClient } from '../mcp-servers/slack/slack-client.js';
@@ -32,8 +35,10 @@ export interface ToolExecutionResult {
   error?: string;
 }
 
-// Persistent conversation histories using Keyv with SQLite
-const conversationStore = new Keyv<BaseMessage[]>(
+const TOKEN_LIMIT_FOR_SUMMARIZATION = 20000;
+
+// Persistent conversation histories using Keyv with SQLite and LangChain serialization
+const conversationStore = new Keyv(
   new KeyvSqlite('sqlite://conversations.sqlite'),
   {
     namespace: 'conversations',
@@ -49,8 +54,11 @@ conversationStore.on('error', err => {
 async function getConversationHistory(
   conversationId: string
 ): Promise<BaseMessage[]> {
-  const history = await conversationStore.get(conversationId);
-  return history || [];
+  const serializedMessages = await conversationStore.get(conversationId);
+  if (!serializedMessages) {
+    return [];
+  }
+  return mapStoredMessagesToChatMessages(serializedMessages);
 }
 
 async function addToConversationHistory(
@@ -59,7 +67,8 @@ async function addToConversationHistory(
 ): Promise<void> {
   const history = await getConversationHistory(conversationId);
   history.push(message);
-  await conversationStore.set(conversationId, history);
+  const serializedMessages = mapChatMessagesToStoredMessages(history);
+  await conversationStore.set(conversationId, serializedMessages);
 }
 
 function createPromptEnhancementMessage(
@@ -119,23 +128,33 @@ ${toolsList}
 
 // Helper function to extract token usage from LangChain responses
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
-function extractTokenUsage(message: any):
-  | {
-      input_tokens?: number;
-      output_tokens?: number;
-      total_tokens?: number;
-    }
-  | undefined {
+function extractTokenUsage(message: any): {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+} {
   // Check for usage_metadata (preferred method in LangChain 2024+)
   if (message.usage_metadata) {
     return {
-      input_tokens: message.usage_metadata.input_tokens,
-      output_tokens: message.usage_metadata.output_tokens,
-      total_tokens: message.usage_metadata.total_tokens,
+      input_tokens: message.usage_metadata.input_tokens || 0,
+      output_tokens: message.usage_metadata.output_tokens || 0,
+      total_tokens: message.usage_metadata.total_tokens || 0,
     };
   }
 
-  return undefined;
+  return {
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+  };
+}
+
+function shouldSummarize(tokenUsage: {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}): boolean {
+  return tokenUsage.total_tokens > TOKEN_LIMIT_FOR_SUMMARIZATION;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LangChain message content varies by model
@@ -329,9 +348,20 @@ async function processResponseWithTools(
 
   await addToConversationHistory(conversationId, finalResponse);
 
-  // Extract and send token usage via progress callback
+  // Check if conversation should be summarized
   const tokenUsage = extractTokenUsage(finalResponse);
-  if (tokenUsage && onProgress) {
+  if (shouldSummarize(tokenUsage)) {
+    const updatedHistory = await getConversationHistory(conversationId);
+    const summarizedHistory = await summarizeConversationHistory(
+      updatedHistory,
+      chatModel
+    );
+    const serializedHistory =
+      mapChatMessagesToStoredMessages(summarizedHistory);
+    await conversationStore.set(conversationId, serializedHistory);
+  }
+
+  if (onProgress) {
     onProgress({
       type: 'token_usage',
       data: tokenUsage,
@@ -425,7 +455,7 @@ export async function chat(
 
   // Extract and send token usage via progress callback
   const tokenUsage = extractTokenUsage(finalAIMessage);
-  if (tokenUsage && request.onProgress) {
+  if (request.onProgress) {
     request.onProgress({
       type: 'token_usage',
       data: tokenUsage,
