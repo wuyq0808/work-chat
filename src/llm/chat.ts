@@ -91,7 +91,7 @@ async function processResponseWithTools(
   tools: StructuredTool[],
   conversationId: string,
   chatModel: BaseChatModel,
-  onProgress?: ProgressCallback
+  onProgress: ProgressCallback
 ): Promise<AIMessage> {
   const toolCalls = response.tool_calls;
 
@@ -135,7 +135,7 @@ async function processResponseWithTools(
   }
   const modelWithTools = chatModel.bindTools(tools);
 
-  onProgress?.({
+  onProgress({
     type: 'ai_processing',
     data: 'Processing with AI...',
   });
@@ -172,19 +172,15 @@ export async function chat(
     slackToken?: string;
     azureToken?: string;
     atlassianToken?: string;
-    conversationId?: string;
+    conversationId: string;
     azureName?: string;
     slackUserId?: string;
-    timezone?: string;
-    onProgress?: ProgressCallback;
+    timezone: string;
+    onProgress: ProgressCallback;
   },
   chatModel: BaseChatModel
 ): Promise<string> {
   const { conversationId } = request;
-
-  if (!conversationId) {
-    throw new Error('conversationId is required');
-  }
 
   // Setup tools
   const allTools = await setupTools(request);
@@ -209,7 +205,7 @@ export async function chat(
   const userMessage = new HumanMessage(request.input);
   await addToConversationHistory(conversationId, userMessage);
 
-  request.onProgress?.({ type: 'status', data: 'Starting new query...' });
+  request.onProgress({ type: 'status', data: 'Starting new query...' });
 
   // Bind tools to the model
   if (!chatModel.bindTools) {
@@ -220,7 +216,7 @@ export async function chat(
   // Get the response (which might include tool calls)
   const currentHistory = await getConversationHistory(conversationId);
 
-  request.onProgress?.({
+  request.onProgress({
     type: 'ai_processing',
     data: 'Processing with AI...',
   });

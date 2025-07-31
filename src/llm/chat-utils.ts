@@ -65,27 +65,25 @@ export function getTokenUsage(message: AIMessage): number {
 // Helper function to update token usage via progress callback
 export function updateTokenUsage(
   message: AIMessage,
-  onProgress?: ProgressCallback
+  onProgress: ProgressCallback
 ): void {
   const totalTokens = getTokenUsage(message);
-  if (onProgress) {
-    onProgress({
-      type: 'token_usage',
-      data: totalTokens,
-    });
-  }
+  onProgress({
+    type: 'token_usage',
+    data: totalTokens,
+  });
 }
 
 export async function executeToolCall(
   toolCall: ToolCall,
   tools: StructuredTool[],
-  onProgress?: ProgressCallback
+  onProgress: ProgressCallback
 ): Promise<ToolCallExecutionResult> {
   const tool = tools.find(t => t.name === toolCall.name);
 
   if (!tool) {
     const error = `Tool ${toolCall.name} not found`;
-    onProgress?.({
+    onProgress({
       type: 'tool_error',
       data: {
         tool: toolCall.name,
@@ -96,7 +94,7 @@ export async function executeToolCall(
   }
 
   // Send progress update for tool execution start
-  onProgress?.({
+  onProgress({
     type: 'tool_start',
     data: {
       tool: toolCall.name,
@@ -108,7 +106,7 @@ export async function executeToolCall(
     const result = await tool.invoke(toolCall.args);
 
     // Send progress update for tool completion
-    onProgress?.({
+    onProgress({
       type: 'tool_complete',
       data: {
         tool: toolCall.name,
@@ -118,7 +116,7 @@ export async function executeToolCall(
     return { toolCall, result, error: '' };
   } catch (error) {
     // Send progress update for tool error
-    onProgress?.({
+    onProgress({
       type: 'tool_error',
       data: {
         tool: toolCall.name,

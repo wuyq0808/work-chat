@@ -22,10 +22,10 @@ export interface ChatRequest {
   atlassianToken?: string;
   azureName?: string;
   slackUserId?: string;
-  provider?: string;
-  conversationId?: string;
-  timezone?: string;
-  onProgress?: ProgressCallback;
+  provider: string;
+  conversationId: string;
+  timezone: string;
+  onProgress: ProgressCallback;
 }
 
 async function handleClaudeBedrockChat(
@@ -33,10 +33,6 @@ async function handleClaudeBedrockChat(
   version: '35' | '37',
   awsConfig: AWSConfig
 ): Promise<string> {
-  if (!request.conversationId) {
-    throw new Error('conversationId is required for Claude Bedrock');
-  }
-
   const claudeBedrockModel = claudeBedrock(version, awsConfig);
   return chat(request, claudeBedrockModel);
 }
