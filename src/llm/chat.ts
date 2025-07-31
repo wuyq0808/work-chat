@@ -110,15 +110,12 @@ ${toolsList}
 - Do not display any User ID / Message ID in response
 - Be persistent in finding relevant results before responding
 - If initial results are poor, do additional search rounds with different approaches
-- Never ask follow-up questions or suggest ways to make requests more specific`);
+- Never ask follow-up questions or suggest ways to make requests more specific
+- Stop calling tools and respond with contents after 10 rounds of tool calling`);
 }
 
-function shouldSummarize(tokenUsage: {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-}): boolean {
-  return tokenUsage.total_tokens > TOKEN_LIMIT_FOR_SUMMARIZATION;
+function shouldSummarize(totalTokens: number): boolean {
+  return totalTokens > TOKEN_LIMIT_FOR_SUMMARIZATION;
 }
 
 async function processResponseWithTools(
@@ -180,8 +177,8 @@ async function processResponseWithTools(
   await addToConversationHistory(conversationId, finalResponse);
 
   // Check if conversation should be summarized
-  const tokenUsage = getTokenUsage(finalResponse);
-  if (shouldSummarize(tokenUsage)) {
+  const totalTokens = getTokenUsage(finalResponse);
+  if (shouldSummarize(totalTokens)) {
     const updatedHistory = await getConversationHistory(conversationId);
     const summarizedHistory = await summarizeConversationHistory(
       updatedHistory,

@@ -11,8 +11,8 @@ export async function summarizeConversationHistory(
   messages: BaseMessage[],
   chatModel: BaseChatModel
 ): Promise<BaseMessage[]> {
-  // Only summarize when we have more than 12 messages to ensure fresh messages remain
-  if (messages.length <= 12) {
+  // Only summarize when we have more than 15 messages to ensure fresh messages remain
+  if (messages.length <= 15) {
     return messages;
   }
 

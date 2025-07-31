@@ -48,26 +48,14 @@ export function formatMessageContent(content: MessageContent): string {
   return JSON.stringify(content);
 }
 
-// Helper function to extract token usage from LangChain responses
-export function getTokenUsage(message: AIMessage): {
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-} {
+// Helper function to extract total token usage from LangChain responses
+export function getTokenUsage(message: AIMessage): number {
   // Check for usage_metadata (preferred method in LangChain 2024+)
   if (message.usage_metadata) {
-    return {
-      input_tokens: message.usage_metadata.input_tokens || 0,
-      output_tokens: message.usage_metadata.output_tokens || 0,
-      total_tokens: message.usage_metadata.total_tokens || 0,
-    };
+    return message.usage_metadata.total_tokens || 0;
   }
 
-  return {
-    input_tokens: 0,
-    output_tokens: 0,
-    total_tokens: 0,
-  };
+  return 0;
 }
 
 // Helper function to update token usage via progress callback
@@ -75,11 +63,11 @@ export function updateTokenUsage(
   message: AIMessage,
   onProgress?: (event: { type: string; data: any }) => void
 ): void {
-  const tokenUsage = getTokenUsage(message);
+  const totalTokens = getTokenUsage(message);
   if (onProgress) {
     onProgress({
       type: 'token_usage',
-      data: tokenUsage,
+      data: totalTokens,
     });
   }
 }

@@ -81,7 +81,7 @@
             </div>
             
             <div id="tokenUsage" style="color: #666; font-size: 12px; white-space: nowrap;">
-                <span id="tokenDetails">Tokens: 0</span>
+                <span id="tokenDetails">0 tokens</span>
             </div>
         </div>
         
@@ -115,14 +115,13 @@
             return Math.random().toString(36).substr(2, 9);
         }
         
-        function updateTokenDisplay(tokenUsage) {
-            // Accumulate total tokens (input + output)
-            if (tokenUsage.input_tokens) totalTokens += tokenUsage.input_tokens;
-            if (tokenUsage.output_tokens) totalTokens += tokenUsage.output_tokens;
+        function updateTokenDisplay(tokensToAdd) {
+            // Accumulate total tokens
+            totalTokens += tokensToAdd;
             
             // Update display
             const tokenDetails = document.getElementById('tokenDetails');
-            tokenDetails.textContent = `Tokens: ${totalTokens}`;
+            tokenDetails.textContent = `${totalTokens} tokens`;
         }
         
         
