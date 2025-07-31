@@ -53,7 +53,6 @@ export class CombinedTools {
     // Prepare tool calls
     const toolCalls: Array<{
       name: string;
-      args: unknown;
       promise: Promise<string>;
     }> = [];
 
@@ -66,8 +65,7 @@ export class CombinedTools {
       if (slackGetLatestTool) {
         toolCalls.push({
           name: 'Slack',
-          args: { limit: 50 },
-          promise: slackGetLatestTool.invoke({ limit: 50 }),
+          promise: slackGetLatestTool.invoke({ days }),
         });
       }
     }
@@ -81,7 +79,6 @@ export class CombinedTools {
       if (azureGetEmailsCalendarTool) {
         toolCalls.push({
           name: 'Azure',
-          args: { days },
           promise: azureGetEmailsCalendarTool.invoke({ days }),
         });
       }
@@ -96,7 +93,6 @@ export class CombinedTools {
       if (atlassianGetLatestTool) {
         toolCalls.push({
           name: 'Atlassian',
-          args: { days },
           promise: atlassianGetLatestTool.invoke({ days }),
         });
       }

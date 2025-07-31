@@ -1,7 +1,7 @@
-import { claudeBedrock } from '../llm-clients/claude-bedrock.js';
+import { claudeBedrock } from './clients/claude-bedrock.js';
 import { chat } from '../llm/chat.js';
 import { AWSConfig } from '../utils/secrets-manager.js';
-import type { ProgressCallback } from '../types/progress.js';
+import type { ChatRequest } from '../types/chat.js';
 
 const AI_PROVIDERS = {
   CLAUDE_BEDROCK_37: 'claude-bedrock-37',
@@ -13,23 +13,6 @@ export type AIProvider = (typeof AI_PROVIDERS)[keyof typeof AI_PROVIDERS];
 function validateAIProvider(value: string | undefined): value is AIProvider {
   if (!value) return false;
   return Object.values(AI_PROVIDERS).includes(value as AIProvider);
-}
-
-export interface OAuthCredentials {
-  slackToken?: string;
-  slackUserId?: string;
-  azureToken?: string;
-  azureName?: string;
-  atlassianToken?: string;
-}
-
-export interface ChatRequest {
-  input: string;
-  provider: string;
-  conversationId: string;
-  timezone: string;
-  onProgress: ProgressCallback;
-  oauthCredentials: OAuthCredentials;
 }
 
 async function handleClaudeBedrockChat(

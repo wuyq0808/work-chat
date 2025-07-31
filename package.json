@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "bin": {
-    "slack-mcp-server": "./src/mcp-servers/bin/slack-mcp-server"
+    "slack-mcp-server": "./src/mcp-tools/bin/slack-mcp-server"
   },
   "scripts": {
     "build": "tsc",
@@ -26,7 +26,6 @@
     "@modelcontextprotocol/sdk": "^1.15.1",
     "@slack/oauth": "^3.0.3",
     "@slack/web-api": "^7.9.3",
-    "@types/retry": "^0.12.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "csv-stringify": "^6.6.0",
@@ -37,7 +36,6 @@
     "keyv": "^5.4.0",
     "mshell-node-secrets": "^2.4.0",
     "node-cache": "^5.1.2",
-    "retry": "^0.13.1",
     "zod": "3.25.67",
     "zod-to-json-schema": "^3.24.6"
   },

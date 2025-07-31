@@ -9,15 +9,16 @@ import { StructuredTool } from '@langchain/core/tools';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { summarizeConversationHistory } from './conversation-summarizer.js';
 import type { ProgressCallback } from '../types/progress.js';
-import type { OAuthCredentials } from './llm-router.js';
+import type {
+  OAuthCredentials,
+  ToolCallExecutionResult,
+} from '../types/chat.js';
 import {
   getTokenUsage,
   updateTokenUsage,
-  executeToolCall,
-  ToolCallExecutionResult,
-  setupTools,
   formatMessageContent,
 } from './chat-utils.js';
+import { executeToolCall, setupTools } from './tool-utils.js';
 import {
   getConversationHistory,
   addToConversationHistory,

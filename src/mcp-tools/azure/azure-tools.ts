@@ -454,7 +454,7 @@ export class AzureTools {
       // Call both email and calendar methods in parallel for efficiency
       const [emailsResult, calendarResult] = await Promise.all([
         this.handleGetLatestEmails({ days }),
-        this.handleGetUpcomingCalendar({ days: Math.min(days, 30) }), // Cap calendar to 30 days max
+        this.handleGetUpcomingCalendar({ days }),
       ]);
 
       // Check if both operations succeeded

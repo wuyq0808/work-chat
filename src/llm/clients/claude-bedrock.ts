@@ -1,6 +1,6 @@
 import { ChatBedrockConverse } from '@langchain/aws';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { AWSConfig } from '../utils/secrets-manager.js';
+import { AWSConfig } from '../../utils/secrets-manager.js';
 
 // Create a Claude Bedrock model
 export function claudeBedrock(
