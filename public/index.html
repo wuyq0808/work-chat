@@ -68,7 +68,7 @@
                 <option value="claude-bedrock-35">Claude-3.5-Sonnet (AWS Bedrock)</option>
             </select>
             <span id="sessionNotice" style="margin-left: 15px; color: #666; font-size: 14px; display: none;">
-                <a href="javascript:location.reload()" style="color: #0066cc; text-decoration: none;">Start fresh session</a>
+                Refresh the page to start a new session
             </span>
         </p>
         
@@ -234,13 +234,9 @@
         }
         
         async function sendMessage() {
-            // Clear tool history and reset tokens for each new request
+            // Clear tool history for each new request (but keep token counters)
             toolCallHistory = [];
-            accumulatedTokens = { input_tokens: 0, output_tokens: 0 };
             updateToolHistory();
-            
-            // Reset token display to 0s
-            document.getElementById('tokenDetails').textContent = 'Tokens in: 0 out: 0';
             
             const slackToken = slackTokenFromCookie;
             const message = document.getElementById('message').value;
