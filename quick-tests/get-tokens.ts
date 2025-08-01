@@ -9,6 +9,7 @@ export interface ExtractedTokens {
   azureToken?: string;
   slackToken?: string;
   atlassianToken?: string;
+  githubToken?: string;
 }
 
 /**
@@ -51,6 +52,19 @@ export function extractAtlassianToken(): string | null {
 }
 
 /**
+ * Extract GitHub token from COOKIES environment variable
+ */
+export function extractGitHubToken(): string | null {
+  const cookies = process.env.COOKIES;
+  if (!cookies) {
+    return null;
+  }
+
+  const githubTokenMatch = cookies.match(/github_token=([^;]+)/);
+  return githubTokenMatch ? githubTokenMatch[1] : null;
+}
+
+/**
  * Extract all available tokens from COOKIES environment variable
  */
 export function extractAllTokens(): ExtractedTokens {
@@ -58,6 +72,7 @@ export function extractAllTokens(): ExtractedTokens {
     azureToken: extractAzureToken() || undefined,
     slackToken: extractSlackToken() || undefined,
     atlassianToken: extractAtlassianToken() || undefined,
+    githubToken: extractGitHubToken() || undefined,
   };
 }
 
@@ -125,6 +140,23 @@ export function requireAtlassianToken(): string {
 }
 
 /**
+ * Extract and validate GitHub token, exit with error if not found
+ */
+export function requireGitHubToken(): string {
+  validateCookiesEnv();
+  
+  const githubToken = extractGitHubToken();
+  if (!githubToken) {
+    console.error('❌ No github_token found in COOKIES');
+    console.log('💡 Please ensure github_token is present in COOKIES');
+    console.log('   Expected format: COOKIES="github_token=your_token_here; ..."');
+    process.exit(1);
+  }
+  
+  return githubToken;
+}
+
+/**
  * Helper function to display available tokens (for debugging)
  */
 export function showAvailableTokens(): void {
@@ -133,4 +165,18 @@ export function showAvailableTokens(): void {
   console.log(`   Azure: ${tokens.azureToken ? '✅ Found' : '❌ Missing'}`);
   console.log(`   Slack: ${tokens.slackToken ? '✅ Found' : '❌ Missing'}`);
   console.log(`   Atlassian: ${tokens.atlassianToken ? '✅ Found' : '❌ Missing'}`);
+  console.log(`   GitHub: ${tokens.githubToken ? '✅ Found' : '❌ Missing'}`);
+}
+
+/**
+ * Simple interface for accessing all tokens (backward compatibility)
+ */
+export function getTokens() {
+  const tokens = extractAllTokens();
+  return {
+    azure_token: tokens.azureToken,
+    slack_token: tokens.slackToken,
+    atlassian_token: tokens.atlassianToken,
+    github_token: tokens.githubToken,
+  };
 }

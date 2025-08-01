@@ -43,6 +43,15 @@ export interface AtlassianConfig {
 }
 
 /**
+ * GitHub OAuth Configuration
+ */
+export interface GitHubConfig {
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
+  GITHUB_REDIRECT_URI?: string;
+}
+
+/**
  * General Application Configuration
  */
 export interface GeneralConfig {
@@ -57,6 +66,7 @@ export interface AppConfig
     SlackConfig,
     AzureConfig,
     AtlassianConfig,
+    GitHubConfig,
     GeneralConfig {}
 
 // Configuration matching hotels-website development.ts
@@ -227,6 +237,11 @@ export const loadAppConfigWithFallbacks = async (): Promise<AppConfig> => {
     ATLASSIAN_CLIENT_ID: getConfigValue('ATLASSIAN_CLIENT_ID'),
     ATLASSIAN_CLIENT_SECRET: getConfigValue('ATLASSIAN_CLIENT_SECRET'),
     ATLASSIAN_REDIRECT_URI: getConfigValue('ATLASSIAN_REDIRECT_URI'),
+
+    // GitHub OAuth
+    GITHUB_CLIENT_ID: getConfigValue('GITHUB_CLIENT_ID'),
+    GITHUB_CLIENT_SECRET: getConfigValue('GITHUB_CLIENT_SECRET'),
+    GITHUB_REDIRECT_URI: getConfigValue('GITHUB_REDIRECT_URI'),
   };
 
   return finalConfig;
@@ -269,6 +284,15 @@ export const getAWSConfig = (appConfig: AppConfig): AWSConfig => ({
   AWS_BEDROCK_CLAUDE_37_MODEL_ID: appConfig.AWS_BEDROCK_CLAUDE_37_MODEL_ID,
   AWS_BEDROCK_CLAUDE_35_MODEL_ID: appConfig.AWS_BEDROCK_CLAUDE_35_MODEL_ID,
   AWS_REGION: appConfig.AWS_REGION,
+});
+
+/**
+ * Extracts GitHub-specific configuration from AppConfig
+ */
+export const getGitHubConfig = (appConfig: AppConfig): GitHubConfig => ({
+  GITHUB_CLIENT_ID: appConfig.GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET: appConfig.GITHUB_CLIENT_SECRET,
+  GITHUB_REDIRECT_URI: appConfig.GITHUB_REDIRECT_URI,
 });
 
 /**

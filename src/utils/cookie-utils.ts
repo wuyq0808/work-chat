@@ -3,6 +3,7 @@
  */
 
 import type { AtlassianTokenResponse } from '../types/atlassian.js';
+import type { GitHubTokenResponse } from '../types/github.js';
 import type { Request, Response } from 'express';
 import { AtlassianOAuthService } from '../oauth/atlassianOAuthService.js';
 import {
@@ -88,6 +89,24 @@ export function setAzureCookies(
         httpOnly: false,
       }
     ),
+  ];
+}
+
+export function setGitHubCookies(
+  tokenData: GitHubTokenResponse,
+  isSecureCookie: boolean
+): string[] {
+  return [
+    getCookieString('github_token', tokenData.access_token, {
+      expiresIn: 2592000, // 30 days (GitHub tokens don't expire by default)
+      isSecureCookie,
+      httpOnly: true,
+    }),
+    getCookieString('github_connected', 'true', {
+      expiresIn: 2592000, // 30 days
+      isSecureCookie,
+      httpOnly: false,
+    }),
   ];
 }
 

@@ -47,3 +47,25 @@ export function getSlackUserIdFromCookie(req: Request): string | undefined {
 
   return cookies.slack_user_id || undefined;
 }
+
+export function getGitHubTokenFromCookie(req: Request): string {
+  // Get from HttpOnly cookie using cookie-parser
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
+
+  return cookies.github_token || '';
+}
+
+export function getGitHubUserNameFromCookie(req: Request): string | undefined {
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
+
+  return cookies.github_user_name || undefined;
+}
+
+export function getGitHubUserLoginFromCookie(req: Request): string | undefined {
+  const cookies =
+    (req as Request & { cookies?: Record<string, string> }).cookies || {};
+
+  return cookies.github_user_login || undefined;
+}

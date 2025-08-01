@@ -9,11 +9,13 @@ import {
   getSlackConfig,
   getAzureConfig,
   getAtlassianConfig,
+  getGitHubConfig,
   getAWSConfig,
 } from './utils/secrets-manager.js';
 import { SlackOAuthService } from './oauth/slackOAuthService.js';
 import { AzureOAuthService } from './oauth/azureOAuthService.js';
 import { AtlassianOAuthService } from './oauth/atlassianOAuthService.js';
+import { GitHubOAuthService } from './oauth/githubOAuthService.js';
 import {
   getSlackTokenFromCookie,
   getAzureTokenFromCookie,
@@ -54,6 +56,7 @@ async function startServer() {
   const atlassianOAuthService = new AtlassianOAuthService(
     getAtlassianConfig(appConfig)
   );
+  const githubOAuthService = new GitHubOAuthService(getGitHubConfig(appConfig));
 
   // Homepage route (moved here to access local OAuth services)
   app.get(
@@ -149,6 +152,9 @@ async function startServer() {
 
   app.get('/atlassian/install', atlassianOAuthService.handleInstall);
   app.get('/atlassian/oauth_redirect', atlassianOAuthService.handleCallback);
+
+  app.get('/github/install', githubOAuthService.handleInstall);
+  app.get('/github/oauth_redirect', githubOAuthService.handleCallback);
 
   app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
