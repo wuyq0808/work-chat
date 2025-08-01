@@ -8,6 +8,8 @@ import { AzureAPIClient } from '../mcp-tools/azure/azure-client.js';
 import { AzureTools } from '../mcp-tools/azure/azure-tools.js';
 import { AtlassianAPIClient } from '../mcp-tools/atlassian/atlassian-client.js';
 import { AtlassianTools } from '../mcp-tools/atlassian/atlassian-tools.js';
+import { GitHubAPIClient } from '../mcp-tools/github/github-client.js';
+import { GitHubTools } from '../mcp-tools/github/github-tools.js';
 import { CombinedTools } from '../mcp-tools/combined/combined-tools.js';
 
 export async function executeToolCall(
@@ -68,12 +70,14 @@ export async function setupTools(request: {
   slackToken?: string;
   azureToken?: string;
   atlassianToken?: string;
+  githubToken?: string;
   timezone?: string;
 }): Promise<StructuredTool[]> {
   const allTools: StructuredTool[] = [];
   let slackTools: SlackTools | undefined;
   let azureTools: AzureTools | undefined;
   let atlassianTools: AtlassianTools | undefined;
+  let githubTools: GitHubTools | undefined;
 
   // Setup Slack tools
   if (request.slackToken) {
@@ -98,6 +102,15 @@ export async function setupTools(request: {
     });
     atlassianTools = new AtlassianTools(atlassianClient);
     allTools.push(...atlassianTools.getTools());
+  }
+
+  // Setup GitHub tools
+  if (request.githubToken) {
+    const githubClient = new GitHubAPIClient({
+      accessToken: request.githubToken,
+    });
+    githubTools = new GitHubTools(githubClient);
+    allTools.push(...githubTools.getTools());
   }
 
   // Setup Combined tools (only if at least one platform is available)

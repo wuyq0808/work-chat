@@ -68,10 +68,9 @@ ${toolsList}
 - Do not translate, response in original language
 
 ## FOR PLATFORM-SPECIFIC REQUESTS
-- "What's in my email" → Focus on Azure email tools
+- Examples: "What's in my email" → Focus on Azure email tools
 - "Show me Slack messages" → Focus on Slack tools
 - "What's in Jira" → Focus on Atlassian Jira tools
-- "Check Confluence" → Focus on Atlassian Confluence tools
 - When request targets specific platform, use only that platform's tools
 - Search across platforms if no platform is specified
 
@@ -184,6 +183,7 @@ export async function chat(
     slackToken: request.oauthCredentials.slackToken,
     azureToken: request.oauthCredentials.azureToken,
     atlassianToken: request.oauthCredentials.atlassianToken,
+    githubToken: request.oauthCredentials.githubToken,
     timezone: request.timezone,
   });
 

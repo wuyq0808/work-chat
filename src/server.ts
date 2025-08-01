@@ -20,6 +20,7 @@ import {
   getSlackTokenFromCookie,
   getAzureTokenFromCookie,
   getAtlassianTokenFromCookie,
+  getGitHubTokenFromCookie,
   getAzureUserNameFromCookie,
   getSlackUserIdFromCookie,
 } from './utils/auth.js';
@@ -101,12 +102,15 @@ async function startServer() {
       let slackToken: string | undefined;
       let azureToken: string | undefined;
       let atlassianToken: string | undefined;
+      let githubToken: string | undefined;
 
       slackToken = getSlackTokenFromCookie(req) || undefined;
 
       azureToken = getAzureTokenFromCookie(req) || undefined;
 
       atlassianToken = getAtlassianTokenFromCookie(req) || undefined;
+
+      githubToken = getGitHubTokenFromCookie(req) || undefined;
 
       // Extract user names from cookies
       const azureName = getAzureUserNameFromCookie(req);
@@ -128,6 +132,7 @@ async function startServer() {
             slackToken,
             azureToken,
             atlassianToken,
+            githubToken,
             azureName,
             slackUserId,
           },

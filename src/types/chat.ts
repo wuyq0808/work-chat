@@ -7,6 +7,7 @@ export interface OAuthCredentials {
   azureToken?: string;
   azureName?: string;
   atlassianToken?: string;
+  githubToken?: string;
 }
 
 export interface ChatRequest {
